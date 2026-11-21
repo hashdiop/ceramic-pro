@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --color-brand-50: #fffbeb;
+  --color-brand-100: #fef3c7;
+  --color-brand-400: #fbbf24;
+  --color-brand-500: #f59e0b;
+  --color-brand-600: #d97706;
+  --color-brand-700: #b45309;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-slate-50 text-slate-800 antialiased;
+}
+
+/* Champs de formulaire : 16px sur mobile pour éviter le zoom automatique iOS. */
+@utility input {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 sm:text-sm disabled:bg-slate-100;
+}
+@utility label {
+    @apply mb-1 block text-xs font-medium text-slate-600;
+}
+@utility card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-sm;
+}
+@utility btn {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+}
+@utility btn-primary {
+    @apply btn bg-slate-900 text-white hover:bg-slate-800;
+}
+@utility btn-accent {
+    @apply btn bg-brand-500 text-slate-900 hover:bg-brand-400;
+}
+@utility btn-success {
+    @apply btn bg-emerald-600 text-white hover:bg-emerald-700;
+}
+@utility btn-ghost {
+    @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+}
+@utility btn-danger {
+    @apply btn border border-red-200 bg-white text-red-600 hover:bg-red-50;
+}
+@utility chip {
+    @apply shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition;
+}
+@utility section-title {
+    @apply text-xs font-bold uppercase tracking-wider text-slate-500;
+}
+
+/* Barre de navigation inférieure : respecte l'encoche des iPhone. */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  body {
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+}
