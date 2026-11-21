@@ -47,7 +47,7 @@ export function DeliveryNote({ id }: { id: string }) {
           </div>
         </header>
 
-        <div className="my-5 grid gap-3 sm:grid-cols-2">
+        <div className="my-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Party title="Expéditeur" name={t.fromDepot?.name} address={t.fromDepot?.address} phone={t.fromDepot?.phone} />
           <Party title="Destinataire" name={t.toDepot?.name} address={t.toDepot?.address} phone={t.toDepot?.phone} />
         </div>

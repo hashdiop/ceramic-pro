@@ -14,6 +14,9 @@ const NAV = [
   { href: "/factures", label: "Factures", icon: "M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6" },
 ];
 
+const SETTINGS_ICON =
+  "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z";
+
 function Icon({ d, className = "h-5 w-5" }: { d: string; className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
@@ -49,7 +52,7 @@ function DepotSwitcher() {
       <select
         value={currentDepotId}
         onChange={(e) => setCurrentDepotId(e.target.value)}
-        className="max-w-[9.5rem] rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-white outline-none focus:border-brand-500 sm:max-w-none"
+        className="max-w-[10.5rem] rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-white outline-none focus:border-brand-500 sm:max-w-none"
         aria-label="Dépôt de travail"
       >
         {depots.map((d) => (
@@ -73,7 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 lg:h-16">
           <Link href="/" className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-bold text-slate-900">C</span>
-            <span className="text-base font-bold leading-tight">
+            <span className="hidden text-base font-bold leading-tight min-[400px]:inline">
               Céramique<span className="text-brand-400">Pro</span>
             </span>
           </Link>
@@ -93,8 +96,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <DepotSwitcher />
+            <Link
+              href="/parametres"
+              title="Paramètres"
+              aria-label="Paramètres"
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition ${
+                isActive("/parametres") ? "bg-brand-500 text-slate-900" : "text-slate-300 hover:bg-slate-800"
+              }`}
+            >
+              <Icon d={SETTINGS_ICON} />
+            </Link>
             <span
               className={`h-2.5 w-2.5 shrink-0 rounded-full ${online ? "bg-emerald-400" : "bg-slate-500"}`}
               title={online ? "Temps réel connecté" : "Temps réel déconnecté"}

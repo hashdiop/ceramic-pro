@@ -85,9 +85,15 @@ export function NewTransferForm() {
         note,
         lines: lines.map(({ productId, lot, boxes }) => ({ productId, lot, boxes })),
       });
+      // L'état de la page est conservé par Next 16 : on repart d'un formulaire vide.
+      setLines([]);
+      setDriver("");
+      setVehicle("");
+      setNote("");
       router.push(`/transferts/${t._id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur");
+    } finally {
       setSaving(false);
     }
   }
@@ -95,7 +101,7 @@ export function NewTransferForm() {
   return (
     <>
       <PageHeader title="Nouveau transfert" subtitle="Le dépôt expéditeur saisit les articles ; le destinataire validera la réception" />
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className="card space-y-3 p-4">
           <h2 className="section-title">Trajet</h2>
           <div className="grid grid-cols-2 gap-3">

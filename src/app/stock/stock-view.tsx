@@ -90,7 +90,7 @@ export function StockView() {
       {loading && !data && <Spinner />}
       {data && groups.length === 0 && <Empty>Aucun article ne correspond aux filtres.</Empty>}
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {groups.map((g) => {
           const p = g[0];
           const isOpen = open === p.productId;

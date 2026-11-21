@@ -12,7 +12,17 @@ export async function connectDB(): Promise<typeof mongoose> {
   if (cache.conn) return cache.conn;
   if (!cache.promise) {
     cache.promise = mongoose
-      .connect(env.mongodbUri, { dbName: env.mongodbDb, bufferCommands: false })
+      .connect(env.mongodbUri, {
+        dbName: env.mongodbDb,
+        bufferCommands: false,
+        // Par défaut le driver attend indéfiniment (socketTimeoutMS: 0) et garde les connexions
+        // inactives ouvertes (maxIdleTimeMS: 0). Une box ou un partage 4G coupe ces connexions
+        // en silence : la requête suivante restait alors bloquée et le bouton figé sur « Enregistrement… ».
+        maxIdleTimeMS: 60_000, // ferme les connexions inactives avant que le réseau ne les coupe
+        socketTimeoutMS: 45_000, // une requête sans réponse échoue au lieu de bloquer
+        serverSelectionTimeoutMS: 10_000, // Atlas injoignable : erreur claire en 10 s au lieu de 30 s
+        connectTimeoutMS: 10_000,
+      })
       .catch((err) => {
         cache.promise = null;
         throw err;

@@ -6,12 +6,29 @@ import { getSocket } from "./socket";
 
 export class ApiError extends Error {}
 
+/** Au-delà, la requête est abandonnée : un bouton ne doit jamais rester figé. */
+const TIMEOUT_MS = 30_000;
+
 export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...init,
+      headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+      cache: "no-store",
+      signal: init?.signal ?? AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (e) {
+    const write = init?.method && init.method !== "GET";
+    if (e instanceof DOMException && (e.name === "TimeoutError" || e.name === "AbortError")) {
+      throw new ApiError(
+        write
+          ? "Le serveur ne répond pas. Vérifiez dans la liste si l'opération a été enregistrée avant de réessayer."
+          : "Le serveur ne répond pas. Réessayez dans un instant.",
+      );
+    }
+    throw new ApiError("Connexion au serveur impossible. Vérifiez votre réseau.");
+  }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(body?.error || `Erreur ${res.status}`);
   return body as T;
@@ -64,3 +81,6 @@ export function useApi<T>(url: string | null, events: RealtimeEvent[] = []) {
 
   return { data, error, loading, reload };
 }
+
+export const apiPatch = <T>(url: string, data: unknown) =>
+  apiFetch<T>(url, { method: "PATCH", body: JSON.stringify(data) });

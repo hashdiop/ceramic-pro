@@ -67,7 +67,7 @@ export function TransferList() {
       {list.loading && !list.data && <Spinner />}
       {list.data && list.data.length === 0 && <Empty>Aucun transfert.</Empty>}
 
-      <ul className="grid gap-2.5 lg:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
         {(list.data ?? []).map((t) => {
           const boxes = t.lines.reduce((s, l) => s + l.sentBoxes, 0);
           return (

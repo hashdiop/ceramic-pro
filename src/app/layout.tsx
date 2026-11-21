@@ -21,7 +21,8 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="fr" className={`${inter.variable} h-full`}>
-      <body className="min-h-full font-sans">
+      {/* suppressHydrationWarning : des extensions (ColorZilla, Grammarly…) ajoutent des attributs au <body>. Ne masque que les attributs de cette balise, pas ses enfants. */}
+      <body className="min-h-full font-sans" suppressHydrationWarning>
         {/* Fournisseur et coque dans la même frontière : hydratés ensemble (pas d'écart serveur/client). */}
         <Suspense>
           <DepotProvider>

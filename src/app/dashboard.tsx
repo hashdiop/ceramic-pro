@@ -38,7 +38,7 @@ export function Dashboard() {
             </Link>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <section className="card p-4">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="section-title">Alertes de stock</h2>

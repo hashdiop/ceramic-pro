@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+// Messages de validation en français.
+z.config(z.locales.fr());
+
 const objectId = z.string().regex(/^[a-f0-9]{24}$/i, "identifiant invalide");
 const boxes = z.coerce.number().int("nombre de caisses entier").positive("doit être supérieur à 0");
 const lot = z.string().trim().min(1, "numéro de bain requis").max(40).toUpperCase();
@@ -78,23 +81,46 @@ export const transferReceptionSchema = z.object({
 });
 export type TransferReceptionInput = z.infer<typeof transferReceptionSchema>;
 
-export const productInputSchema = z.object({
-  ref: z.string().trim().min(1).max(30).toUpperCase(),
-  name: z.string().trim().min(1).max(120),
-  motif: z.string().trim().min(1).max(60),
-  format: z.string().trim().min(1).max(30),
-  m2PerBox: z.coerce.number().positive().max(100),
-  pricePerM2: z.coerce.number().int().min(0),
-  minStockBoxes: z.coerce.number().int().min(0).default(10),
-  imageUrl: z.string().trim().default(""),
-  imagePublicId: z.string().trim().default(""),
+/* Champs sans valeur par défaut : réutilisés tels quels pour les mises à jour partielles
+   (avec Zod 4, .partial() appliquerait sinon les valeurs par défaut et écraserait les données). */
+const productFields = z.object({
+  ref: z.string().trim().min(1, "référence requise").max(30).toUpperCase(),
+  name: z.string().trim().min(1, "désignation requise").max(120),
+  motif: z.string().trim().min(1, "motif requis").max(60),
+  format: z.string().trim().min(1, "format requis").max(30),
+  m2PerBox: z.coerce.number().positive("m² par caisse > 0").max(100),
+  pricePerM2: z.coerce.number().int("prix entier en FCFA").min(0),
+  minStockBoxes: z.coerce.number().int().min(0),
+  imageUrl: z.string().trim().max(500),
+  imagePublicId: z.string().trim().max(200),
+  active: z.boolean(),
+});
+
+export const productInputSchema = productFields.extend({
+  minStockBoxes: productFields.shape.minStockBoxes.default(10),
+  imageUrl: productFields.shape.imageUrl.default(""),
+  imagePublicId: productFields.shape.imagePublicId.default(""),
+  active: productFields.shape.active.default(true),
 });
 export type ProductInput = z.infer<typeof productInputSchema>;
 
-export const depotInputSchema = z.object({
-  code: z.string().trim().min(1).max(10).toUpperCase(),
-  name: z.string().trim().min(1).max(80),
-  address: z.string().trim().max(200).default(""),
-  phone: z.string().trim().max(40).default(""),
+export const productUpdateSchema = productFields.partial();
+export type ProductUpdate = z.infer<typeof productUpdateSchema>;
+
+const depotFields = z.object({
+  code: z.string().trim().min(1, "code requis").max(10).toUpperCase(),
+  name: z.string().trim().min(1, "nom requis").max(80),
+  address: z.string().trim().max(200),
+  phone: z.string().trim().max(40),
+  active: z.boolean(),
+});
+
+export const depotInputSchema = depotFields.extend({
+  address: depotFields.shape.address.default(""),
+  phone: depotFields.shape.phone.default(""),
+  active: depotFields.shape.active.default(true),
 });
 export type DepotInput = z.infer<typeof depotInputSchema>;
+
+export const depotUpdateSchema = depotFields.partial();
+export type DepotUpdate = z.infer<typeof depotUpdateSchema>;

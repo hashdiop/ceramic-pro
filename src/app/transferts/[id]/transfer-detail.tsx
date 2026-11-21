@@ -66,7 +66,7 @@ export function TransferDetail({ id }: { id: string }) {
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <section className="card space-y-2 p-4 text-sm lg:col-span-1">
           <div className="flex items-center justify-between">
             <span className="section-title">Statut</span>
@@ -153,7 +153,7 @@ export function TransferDetail({ id }: { id: string }) {
 
           {t.status === "EN_TRANSIT" && (
             <div className="mt-4 space-y-3 border-t border-slate-200 pt-4">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label>
                   <span className="label">Réceptionné par</span>
                   <input value={receivedBy} onChange={(e) => setReceivedBy(e.target.value)} placeholder="Nom du magasinier" className="input" />

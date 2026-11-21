@@ -10,6 +10,8 @@ export interface ProductDTO {
   pricePerM2: number;
   minStockBoxes: number;
   imageUrl: string;
+  imagePublicId?: string;
+  active: boolean;
 }
 
 export interface DepotDTO {
@@ -18,6 +20,7 @@ export interface DepotDTO {
   name: string;
   address?: string;
   phone?: string;
+  active?: boolean;
 }
 
 export type StockStatus = "RUPTURE" | "BAS" | "OK";

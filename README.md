@@ -35,6 +35,7 @@ Voir [`.env.example`](.env.example).
   - `disponible = physique − réservé` : seul le disponible est vendable.
 - **Seuil d'alerte** par produit (`minStockBoxes`), appliqué à chaque dépôt : statuts *Rupture* / *Stock bas* / *OK*.
 - **Journal des mouvements** : chaque entrée, vente, casse, ajustement ou transfert est tracé avec le solde après mouvement.
+- **Paramètres** (`/parametres`, icône engrenage) : création et modification des produits (avec calcul des m²/caisse à partir du format et du nombre de carreaux) et des dépôts. On **archive** au lieu de supprimer, pour garder l'historique intact. L'archivage est refusé tant qu'il reste du stock ou un transfert en transit, et il est impossible d'archiver le dernier dépôt actif. Les factures conservent le prix et la désignation en vigueur au moment de la vente.
 
 ### Transferts inter-dépôts
 

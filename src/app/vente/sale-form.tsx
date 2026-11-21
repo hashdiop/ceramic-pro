@@ -100,9 +100,17 @@ export function SaleForm() {
             ? { productId: breakageProduct._id, unit: breakage.unit, quantity: breakage.quantity }
             : null,
       });
+      // Next 16 (cacheComponents) conserve l'état de la page quand on la quitte :
+      // on remet le formulaire à zéro pour que la vente suivante reparte d'un panier vide.
+      setCart([]);
+      setClient({ name: "", phone: "", type: CLIENT_TYPES[0] });
+      setPayment(PAYMENT_METHODS[0]);
+      setBreakage({ enabled: false, productId: "", unit: "caisses", quantity: 1 });
+      setSheetOpen(false);
       router.push(`/factures/${inv._id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur lors de l'enregistrement");
+    } finally {
       setSaving(false);
     }
   }
@@ -114,7 +122,7 @@ export function SaleForm() {
     <>
       <PageHeader title="Nouvelle vente" subtitle={currentDepot ? `Sortie de stock : ${currentDepot.name}` : undefined} />
 
-      <div className="grid gap-4 lg:grid-cols-12 lg:gap-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6">
         {/* ------------------------------ Catalogue ------------------------------ */}
         <div className="min-w-0 space-y-4 lg:col-span-7">
           <section className="card p-4">
@@ -128,7 +136,7 @@ export function SaleForm() {
             />
             <Chips options={motifs} value={motif} onChange={setMotif} />
 
-            <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+            <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               {filtered.length === 0 && <Empty>Aucun carreau ne correspond.</Empty>}
               {filtered.map((p) => {
                 const inCart = cart.some((c) => c.productId === p._id);
@@ -244,7 +252,7 @@ export function SaleForm() {
 
             <section className="card p-4">
               <h2 className="section-title mb-3">Client & règlement</h2>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="sm:col-span-2">
                   <span className="label">Nom du client / entreprise</span>
                   <input value={client.name} onChange={(e) => setClient({ ...client, name: e.target.value })} placeholder="Client Comptoir" className="input" />
