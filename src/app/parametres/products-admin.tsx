@@ -17,11 +17,12 @@ type Draft = {
   m2PerBox: string;
   pricePerM2: string;
   minStockBoxes: string;
+  globalMinBoxes: string;
   imageUrl: string;
   imagePublicId: string;
 };
 
-const EMPTY: Draft = { name: "", motif: "", format: "", m2PerBox: "", pricePerM2: "", minStockBoxes: "10", imageUrl: "", imagePublicId: "" };
+const EMPTY: Draft = { name: "", motif: "", format: "", m2PerBox: "", pricePerM2: "", minStockBoxes: "10", globalMinBoxes: "", imageUrl: "", imagePublicId: "" };
 
 const toDraft = (p: ProductDTO): Draft => ({
   name: p.name,
@@ -30,6 +31,7 @@ const toDraft = (p: ProductDTO): Draft => ({
   m2PerBox: String(p.m2PerBox),
   pricePerM2: String(p.pricePerM2),
   minStockBoxes: String(p.minStockBoxes),
+  globalMinBoxes: p.globalMinBoxes != null ? String(p.globalMinBoxes) : "",
   imageUrl: p.imageUrl ?? "",
   imagePublicId: p.imagePublicId ?? "",
 });
@@ -94,7 +96,7 @@ export function ProductsAdmin({ readOnly = false }: { readOnly?: boolean }) {
               </div>
               <div className="text-right">
                 <div className="text-sm font-bold text-brand-700">{formatCFA(p.pricePerM2)}</div>
-                <div className="text-[11px] text-slate-500">seuil {p.minStockBoxes} cs</div>
+                <div className="text-[11px] text-slate-500">{p.globalMinBoxes != null ? `seuil ${p.globalMinBoxes}` : "seuil auto"} · min. {p.minStockBoxes}/dépôt</div>
               </div>
             </button>
           </li>
@@ -233,6 +235,8 @@ function ProductForm({ product, motifs, onDone }: { product: ProductDTO | null; 
     m2PerBox: Number(d.m2PerBox),
     pricePerM2: Number(d.pricePerM2),
     minStockBoxes: Number(d.minStockBoxes || 0),
+    // Vide : seuil global calculé (minimum par dépôt × nombre de dépôts).
+    ...(d.globalMinBoxes !== "" ? { globalMinBoxes: Number(d.globalMinBoxes) } : {}),
     imageUrl: d.imageUrl,
     imagePublicId: d.imagePublicId,
   });
@@ -295,10 +299,20 @@ function ProductForm({ product, motifs, onDone }: { product: ProductDTO | null; 
           <span className="label">Prix au m² (FCFA) *</span>
           <input value={d.pricePerM2} onChange={set("pricePerM2")} required type="number" inputMode="numeric" step="1" min="0" className="input" />
         </label>
-        <label>
-          <span className="label">Seuil d&apos;alerte (cs)</span>
-          <input value={d.minStockBoxes} onChange={set("minStockBoxes")} type="number" inputMode="numeric" step="1" min="0" className="input" />
-        </label>
+        <div className="col-span-2 grid grid-cols-2 gap-3 rounded-xl bg-white p-3 ring-1 ring-slate-200">
+          <span className="col-span-2 text-xs font-semibold text-slate-600">Alertes de stock</span>
+          <label>
+            <span className="label">Seuil global (cs)</span>
+            <input value={d.globalMinBoxes} onChange={set("globalMinBoxes")} type="number" inputMode="numeric" step="1" min="0" className="input" placeholder="auto" />
+          </label>
+          <label>
+            <span className="label">Minimum par dépôt (cs)</span>
+            <input value={d.minStockBoxes} onChange={set("minStockBoxes")} type="number" inputMode="numeric" step="1" min="0" className="input" />
+          </label>
+          <p className="col-span-2 text-[11px] text-slate-500">
+            Global : tout le réseau sous ce seuil → « Stock bas » (à commander). Par dépôt : un dépôt sous son minimum alors que le réseau a du stock → « À rééquilibrer » (un transfert suffit). Seuil global vide = minimum × nombre de dépôts.
+          </p>
+        </div>
       </div>
 
       <p className="text-[11px] text-slate-400">

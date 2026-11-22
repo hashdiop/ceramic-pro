@@ -1,6 +1,6 @@
 import { connectDB } from "@/server/db";
 import { Invoice, Product, Transfer } from "@/server/models";
-import { getStockOverview } from "./stock";
+import { getProductOverview } from "./stock";
 
 /** Indicateurs du tableau de bord : ventes, motifs, alertes de stock, transferts. */
 export async function getDashboard() {
@@ -28,7 +28,7 @@ export async function getDashboard() {
       { $group: { _id: { $arrayElemAt: ["$bp.motif", 0] }, amount: { $sum: "$breakageAmount" } } },
     ]),
     Invoice.find().sort({ createdAt: -1 }).limit(5).populate("depot", "code name").lean(),
-    getStockOverview(),
+    getProductOverview(),
     Transfer.countDocuments({ status: "EN_TRANSIT" }),
   ]);
 
@@ -41,9 +41,8 @@ export async function getDashboard() {
     })
     .sort((a, b) => b.m2 - a.m2);
 
-  const alerts = stock
-    .filter((s) => s.status !== "OK")
-    .sort((a, b) => (a.status === b.status ? a.availableBoxes - b.availableBoxes : a.status === "RUPTURE" ? -1 : 1));
+  // Alertes au niveau du réseau (déjà triées : rupture, stock bas, à rééquilibrer).
+  const alerts = stock.filter((s) => s.status !== "OK");
 
   return {
     revenue: t.revenue,

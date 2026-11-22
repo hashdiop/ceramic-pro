@@ -228,6 +228,89 @@ export async function getStockOverview(depotId?: string): Promise<StockRow[]> {
   return rows;
 }
 
+/**
+ * Statut d'un produit sur l'ensemble du réseau (seuil global + minimum par dépôt) :
+ *  - RUPTURE      : plus aucune caisse disponible nulle part ;
+ *  - BAS          : total disponible sous le seuil global → commander au fournisseur ;
+ *  - REEQUILIBRER : total suffisant mais au moins un dépôt sous son minimum → un transfert suffit ;
+ *  - OK.
+ */
+export type GlobalStatus = "RUPTURE" | "BAS" | "REEQUILIBRER" | "OK";
+
+export interface ProductStock {
+  productId: string;
+  ref: string;
+  name: string;
+  motif: string;
+  format: string;
+  m2PerBox: number;
+  pricePerM2: number;
+  imageUrl: string;
+  minDepotBoxes: number;
+  globalMinBoxes: number;
+  onHandBoxes: number;
+  reservedBoxes: number;
+  availableBoxes: number;
+  incomingBoxes: number;
+  status: GlobalStatus;
+  depots: Pick<StockRow, "depotId" | "depotCode" | "depotName" | "onHandBoxes" | "reservedBoxes" | "availableBoxes" | "incomingBoxes" | "status" | "lots">[];
+}
+
+const STATUS_ORDER: Record<GlobalStatus, number> = { RUPTURE: 0, BAS: 1, REEQUILIBRER: 2, OK: 3 };
+
+/** Stock par produit, tous dépôts actifs confondus, avec la répartition par dépôt et par bain. */
+export async function getProductOverview(): Promise<ProductStock[]> {
+  const [rows, globalMins] = await Promise.all([
+    getStockOverview(),
+    Product.find({ active: true }, { globalMinBoxes: 1 }).lean(),
+  ]);
+  const globalById = new Map(globalMins.map((p) => [String(p._id), p.globalMinBoxes]));
+  const byProduct = new Map<string, StockRow[]>();
+  for (const r of rows) {
+    if (!byProduct.has(r.productId)) byProduct.set(r.productId, []);
+    byProduct.get(r.productId)!.push(r);
+  }
+
+  const out: ProductStock[] = [];
+  for (const [productId, list] of byProduct) {
+    const p = list[0];
+    const sum = (k: "onHandBoxes" | "reservedBoxes" | "availableBoxes" | "incomingBoxes") => list.reduce((s, r) => s + r[k], 0);
+    const available = sum("availableBoxes");
+    const globalMin = globalById.get(productId) ?? p.minStockBoxes * list.length;
+    const status: GlobalStatus =
+      available <= 0 ? "RUPTURE" : available <= globalMin ? "BAS" : list.some((r) => r.status !== "OK") ? "REEQUILIBRER" : "OK";
+    out.push({
+      productId,
+      ref: p.ref,
+      name: p.name,
+      motif: p.motif,
+      format: p.format,
+      m2PerBox: p.m2PerBox,
+      pricePerM2: p.pricePerM2,
+      imageUrl: p.imageUrl,
+      minDepotBoxes: p.minStockBoxes,
+      globalMinBoxes: globalMin,
+      onHandBoxes: sum("onHandBoxes"),
+      reservedBoxes: sum("reservedBoxes"),
+      availableBoxes: available,
+      incomingBoxes: sum("incomingBoxes"),
+      status,
+      depots: list.map(({ depotId, depotCode, depotName, onHandBoxes, reservedBoxes, availableBoxes, incomingBoxes, status, lots }) => ({
+        depotId,
+        depotCode,
+        depotName,
+        onHandBoxes,
+        reservedBoxes,
+        availableBoxes,
+        incomingBoxes,
+        status,
+        lots,
+      })),
+    });
+  }
+  return out.sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.availableBoxes - b.availableBoxes);
+}
+
 /** Lots vendables d'un dépôt (pour la facturation et les transferts). */
 export async function getAvailableLots(depotId: string) {
   await connectDB();

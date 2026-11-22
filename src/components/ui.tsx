@@ -1,7 +1,7 @@
 "use client";
 
 import { imageUrl } from "@/lib/images";
-import type { StockStatus, TransferStatus } from "@/lib/types";
+import type { GlobalStatus, StockStatus, TransferStatus } from "@/lib/types";
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: React.ReactNode }) {
   return (
@@ -60,6 +60,18 @@ const STOCK_BADGE: Record<StockStatus, [string, string]> = {
 };
 export function StockBadge({ status }: { status: StockStatus }) {
   const [label, cls] = STOCK_BADGE[status];
+  return <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${cls}`}>{label}</span>;
+}
+
+const GLOBAL_BADGE: Record<GlobalStatus, [string, string]> = {
+  RUPTURE: ["Rupture réseau", "bg-red-100 text-red-700"],
+  BAS: ["Stock bas", "bg-amber-100 text-amber-800"],
+  REEQUILIBRER: ["À rééquilibrer", "bg-sky-100 text-sky-700"],
+  OK: ["OK", "bg-emerald-100 text-emerald-700"],
+};
+/** Statut d'un produit sur tout le réseau. */
+export function GlobalStockBadge({ status }: { status: GlobalStatus }) {
+  const [label, cls] = GLOBAL_BADGE[status];
   return <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${cls}`}>{label}</span>;
 }
 

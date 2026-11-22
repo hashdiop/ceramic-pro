@@ -9,6 +9,7 @@ export interface ProductDTO {
   m2PerBox: number;
   pricePerM2: number;
   minStockBoxes: number;
+  globalMinBoxes?: number;
   imageUrl: string;
   imagePublicId?: string;
   active: boolean;
@@ -156,7 +157,8 @@ export interface DashboardDTO {
   invoiceCount: number;
   motifs: { motif: string; m2: number; gross: number; breakage: number; net: number }[];
   recent: InvoiceDTO[];
-  alerts: StockRowDTO[];
+  /** Alertes au niveau du réseau (statut global du produit). */
+  alerts: ProductStockDTO[];
   inTransitCount: number;
 }
 
@@ -177,10 +179,56 @@ export interface UserDTO {
   _id: string;
   email: string;
   name: string;
+  phone: string;
   role: Role;
   depotIds: string[];
   active: boolean;
   mustChangePassword: boolean;
   lastLoginAt: string | null;
   createdAt: string | null;
+}
+
+/** Statut d'un produit sur tout le réseau (seuil global + minimum par dépôt). */
+export type GlobalStatus = "RUPTURE" | "BAS" | "REEQUILIBRER" | "OK";
+
+export interface ProductDepotStockDTO {
+  depotId: string;
+  depotCode: string;
+  depotName: string;
+  onHandBoxes: number;
+  reservedBoxes: number;
+  availableBoxes: number;
+  incomingBoxes: number;
+  status: StockStatus;
+  lots: LotDTO[];
+}
+
+/** GET /api/stock/products */
+export interface ProductStockDTO {
+  productId: string;
+  ref: string;
+  name: string;
+  motif: string;
+  format: string;
+  m2PerBox: number;
+  pricePerM2: number;
+  imageUrl: string;
+  minDepotBoxes: number;
+  globalMinBoxes: number;
+  onHandBoxes: number;
+  reservedBoxes: number;
+  availableBoxes: number;
+  incomingBoxes: number;
+  status: GlobalStatus;
+  depots: ProductDepotStockDTO[];
+}
+
+/** GET /api/network */
+export interface NetworkDepotDTO {
+  _id: string;
+  code: string;
+  name: string;
+  address: string;
+  phone: string;
+  managers: { name: string; phone: string }[];
 }

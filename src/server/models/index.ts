@@ -23,8 +23,10 @@ const productSchema = new Schema(
     format: { type: String, required: true, trim: true }, // "60x60 cm"
     m2PerBox: { type: Number, required: true, min: 0.01 },
     pricePerM2: { type: Number, required: true, min: 0 }, // FCFA entiers
-    /** Seuil d'alerte (en caisses) appliqué à chaque dépôt. */
+    /** Minimum par dépôt (en caisses) : en dessous, le dépôt est signalé (« À rééquilibrer » si le réseau a du stock). */
     minStockBoxes: { type: Number, default: 10, min: 0 },
+    /** Seuil d'alerte global (réseau, en caisses). Absent : minimum par dépôt × nombre de dépôts actifs. */
+    globalMinBoxes: { type: Number, min: 0 },
     /** URL de l'image (locale pour le jeu d'exemple, Cloudinary ensuite). */
     imageUrl: { type: String, default: "" },
     /** Identifiant Cloudinary, vide tant que Cloudinary n'est pas utilisé. */
@@ -231,6 +233,8 @@ const userSchema = new Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     name: { type: String, required: true, trim: true },
+    /** Téléphone personnel du responsable, affiché aux autres dépôts (page Réseau). */
+    phone: { type: String, default: "", trim: true },
     /** ADMIN : tous les dépôts + comptes + catalogue. USER : consulte tout, n'agit que sur ses dépôts. */
     role: { type: String, enum: ROLES, default: "USER" },
     depots: [{ type: Schema.Types.ObjectId, ref: "Depot" }],

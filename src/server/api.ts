@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connection } from "next/server";
 import { errorResponse } from "@/server/errors";
 import { getActor, type Actor } from "@/server/context";
+import { SESSION_COOKIE, sessionCookieOptions } from "@/server/auth/token";
 
 /**
  * Enveloppe commune des routes API : rendu à la demande (jamais prérendu),
@@ -19,7 +20,11 @@ export function route<C = unknown>(
       const data = await fn(req, ctx, actor);
       return data instanceof Response ? data : NextResponse.json(data ?? { ok: true });
     } catch (err) {
-      return errorResponse(err);
+      const res = errorResponse(err);
+      // Session refusée (compte désactivé, mot de passe changé ailleurs…) : on efface le cookie,
+      // sinon le proxy, qui ne voit qu'une signature valide, renverrait sans fin de /login vers l'application.
+      if (res.status === 401) res.cookies.set(SESSION_COOKIE, "", { ...sessionCookieOptions, maxAge: 0 });
+      return res;
     }
   };
 }

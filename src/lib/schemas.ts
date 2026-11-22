@@ -91,6 +91,7 @@ const productFields = z.object({
   m2PerBox: z.coerce.number().positive("m² par caisse > 0").max(100),
   pricePerM2: z.coerce.number().int("prix entier en FCFA").min(0),
   minStockBoxes: z.coerce.number().int().min(0),
+  globalMinBoxes: z.coerce.number().int().min(0),
   imageUrl: z.string().trim().max(500),
   imagePublicId: z.string().trim().max(200),
   active: z.boolean(),
@@ -98,6 +99,7 @@ const productFields = z.object({
 
 export const productInputSchema = productFields.extend({
   minStockBoxes: productFields.shape.minStockBoxes.default(10),
+  globalMinBoxes: productFields.shape.globalMinBoxes.optional(),
   imageUrl: productFields.shape.imageUrl.default(""),
   imagePublicId: productFields.shape.imagePublicId.default(""),
   active: productFields.shape.active.default(true),
@@ -143,6 +145,7 @@ const userRole = z.enum(["ADMIN", "USER"]);
 export const userInputSchema = z.object({
   email: z.string().trim().email("e-mail invalide").max(120),
   name: z.string().trim().min(1, "nom requis").max(80),
+  phone: z.string().trim().max(30).default(""),
   role: userRole.default("USER"),
   depotIds: z.array(objectId).default([]),
   /** Mot de passe provisoire : l'utilisateur devra le changer à sa première connexion. */
@@ -152,6 +155,7 @@ export type UserInput = z.infer<typeof userInputSchema>;
 
 export const userUpdateSchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
+  phone: z.string().trim().max(30).optional(),
   role: userRole.optional(),
   depotIds: z.array(objectId).optional(),
   active: z.boolean().optional(),

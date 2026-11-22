@@ -77,7 +77,10 @@ function Accounts() {
                   {u.role === "ADMIN" ? "Admin" : "Dépôt"}
                 </span>
               </div>
-              <div className="mt-0.5 text-sm text-slate-700">{u.name}</div>
+              <div className="mt-0.5 text-sm text-slate-700">
+                {u.name}
+                {u.phone && <span className="text-slate-500"> · {u.phone}</span>}
+              </div>
               <div className="mt-0.5 text-xs text-slate-500">
                 {u.role === "ADMIN" ? "Tous les dépôts" : u.depotIds.map(depotName).join(", ") || "Aucun dépôt attribué"}
               </div>
@@ -115,6 +118,7 @@ function UserForm({ user, depots, onDone }: { user: UserDTO | null; depots: Depo
   const self = user?._id === me?.id;
   const [email, setEmail] = useState(user?.email ?? "");
   const [name, setName] = useState(user?.name ?? "");
+  const [phone, setPhone] = useState(user?.phone ?? "");
   const [role, setRole] = useState<Role>(user?.role ?? "USER");
   const [depotIds, setDepotIds] = useState<string[]>(user?.depotIds ?? []);
   const [password, setPassword] = useState("");
@@ -140,8 +144,8 @@ function UserForm({ user, depots, onDone }: { user: UserDTO | null; depots: Depo
     if (role === "USER" && depotIds.length === 0) return setError("Attribuez au moins un dépôt à ce compte.");
     run("save", () =>
       user
-        ? apiPatch(`/api/users/${user._id}`, { name, role, depotIds, ...(password ? { resetPassword: password } : {}) })
-        : apiPost("/api/users", { email, name, role, depotIds, password }),
+        ? apiPatch(`/api/users/${user._id}`, { name, phone, role, depotIds, ...(password ? { resetPassword: password } : {}) })
+        : apiPost("/api/users", { email, name, phone, role, depotIds, password }),
     );
   };
 
@@ -154,6 +158,11 @@ function UserForm({ user, depots, onDone }: { user: UserDTO | null; depots: Depo
       <label className="block">
         <span className="label">Nom *</span>
         <input value={name} onChange={(e) => setName(e.target.value)} required className="input" placeholder="Responsable Dépôt Pikine" />
+      </label>
+      <label className="block">
+        <span className="label">Téléphone du responsable</span>
+        <input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="input" placeholder="77 123 45 67" />
+        <span className="mt-1 block text-[11px] text-slate-400">Affiché aux autres dépôts (page Réseau) pour les appels et WhatsApp.</span>
       </label>
 
       <div>

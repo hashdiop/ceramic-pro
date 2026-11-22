@@ -3,15 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useApi } from "@/lib/client/api";
 import { getSocket } from "@/lib/client/socket";
+import type { ProductStockDTO } from "@/lib/types";
 import { useAuth } from "./auth-context";
 import { useDepots } from "./depot-context";
+import { Sheet } from "./sheet";
 
 const NAV = [
   { href: "/", label: "Accueil", icon: "M3 11.5 12 4l9 7.5M5 10v10h5v-6h4v6h5V10" },
   { href: "/vente", label: "Vente", icon: "M4 5h16v14H4zM8 9h8M8 13h5" },
   { href: "/stock", label: "Stock", icon: "M3 7l9-4 9 4-9 4-9-4zm0 5l9 4 9-4M3 17l9 4 9-4" },
   { href: "/transferts", label: "Transferts", icon: "M4 8h13l-3-3M20 16H7l3 3" },
+  { href: "/reseau", label: "Réseau", icon: "M12 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM5 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM19 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM12 7v5m0 0-5.5 5M12 12l5.5 5" },
   { href: "/factures", label: "Factures", icon: "M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6" },
 ];
 
@@ -44,27 +48,93 @@ function useRealtimeStatus() {
   return online;
 }
 
+const PIN_ICON = "M12 21s-7-6.2-7-11.5a7 7 0 1 1 14 0C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z";
+
+/**
+ * Dépôt de travail.
+ *  - Un seul dépôt attribué : simple étiquette, rien à choisir (les autres dépôts se consultent dans Réseau).
+ *  - Plusieurs (ou admin) : l'étiquette ouvre un panneau de grandes cartes, faciles à toucher.
+ */
 function DepotSwitcher() {
-  const { depots, currentDepotId, setCurrentDepotId } = useDepots();
-  const { canWrite } = useAuth();
-  if (!depots.length) return null;
+  const { workDepots, currentDepot, currentDepotId, setCurrentDepotId } = useDepots();
+  const { isAdmin } = useAuth();
+  const [open, setOpen] = useState(false);
+  const stock = useApi<ProductStockDTO[]>(open ? "/api/stock/products" : null);
+  if (!currentDepot) return null;
+
+  const chip = (
+    <>
+      <Icon d={PIN_ICON} className="h-4 w-4 shrink-0 text-brand-400" />
+      <span className="truncate">{currentDepot.name}</span>
+    </>
+  );
+  if (workDepots.length <= 1) {
+    return (
+      <span className="flex min-w-0 max-w-[11rem] items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1.5 text-sm font-medium text-white sm:max-w-xs" title="Votre dépôt">
+        {chip}
+      </span>
+    );
+  }
+
+  const summary = (depotId: string) => {
+    const rows = (stock.data ?? []).map((p) => p.depots.find((d) => d.depotId === depotId)).filter(Boolean);
+    return { boxes: rows.reduce((s, r) => s + (r?.availableBoxes ?? 0), 0), alerts: rows.filter((r) => r?.status !== "OK").length };
+  };
+
   return (
-    <label className="flex items-center gap-2 text-xs text-slate-300">
-      <span className="hidden sm:inline">Dépôt</span>
-      <select
-        value={currentDepotId}
-        onChange={(e) => setCurrentDepotId(e.target.value)}
-        className="max-w-[10.5rem] rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-white outline-none focus:border-brand-500 sm:max-w-none"
-        aria-label="Dépôt de travail"
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex min-w-0 max-w-[11rem] items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1.5 text-sm font-medium text-white ring-1 ring-slate-700 transition hover:ring-brand-500 sm:max-w-xs"
+        aria-label={`Dépôt de travail : ${currentDepot.name}. Changer`}
       >
-        {depots.map((d) => (
-          <option key={d._id} value={d._id}>
-            {d.code} — {d.name}
-              {canWrite(d._id) ? "" : " (consultation)"}
-          </option>
-        ))}
-      </select>
-    </label>
+        {chip}
+        <span aria-hidden className="text-slate-400">▾</span>
+      </button>
+      <Sheet open={open} title="Dépôt de travail" onClose={() => setOpen(false)}>
+        <p className="mb-3 text-sm text-slate-500">
+          {isAdmin ? "Vous pouvez agir sur tous les dépôts." : "Vos dépôts attribués."} Ventes, opérations de stock et transferts se font depuis le dépôt choisi.
+        </p>
+        <ul className="space-y-2">
+          {workDepots.map((d) => {
+            const selected = d._id === currentDepotId;
+            const s = summary(d._id);
+            return (
+              <li key={d._id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentDepotId(d._id);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center gap-3 rounded-2xl p-4 text-left transition ${
+                    selected ? "bg-brand-50 ring-2 ring-brand-500" : "bg-white ring-1 ring-slate-200 hover:ring-brand-300"
+                  }`}
+                >
+                  <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${selected ? "bg-brand-500 text-slate-900" : "bg-slate-100 text-slate-600"}`}>
+                    {d.code}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-bold text-slate-900">{d.name}</span>
+                    <span className="block truncate text-xs text-slate-500">{d.address || "—"}</span>
+                    {stock.data && (
+                      <span className="mt-0.5 block text-xs text-slate-600">
+                        {s.boxes} cs disponibles{s.alerts > 0 && <span className="font-semibold text-amber-700"> · {s.alerts} alerte(s)</span>}
+                      </span>
+                    )}
+                  </span>
+                  {selected && <span className="text-lg text-brand-600">✓</span>}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <Link href="/reseau" onClick={() => setOpen(false)} className="btn-ghost mt-4 w-full">
+          Consulter les autres dépôts (Réseau) →
+        </Link>
+      </Sheet>
+    </>
   );
 }
 
@@ -182,7 +252,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Navigation mobile en bas d'écran (zone du pouce) */}
       <nav className="no-print safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur lg:hidden">
-        <ul className="grid grid-cols-5">
+        <ul className="grid grid-cols-6">
           {NAV.map((n) => {
             const active = isActive(n.href);
             return (

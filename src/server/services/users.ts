@@ -7,13 +7,14 @@ import { createToken } from "@/server/auth/token";
 import type { Actor } from "@/server/context";
 import type { UserInput, UserUpdate } from "@/lib/schemas";
 
-type UserLean = { _id: Types.ObjectId; email: string; name: string; role: string; depots?: Types.ObjectId[]; active: boolean; mustChangePassword: boolean; lastLoginAt?: Date | null; createdAt?: Date };
+type UserLean = { _id: Types.ObjectId; email: string; name: string; phone?: string; role: string; depots?: Types.ObjectId[]; active: boolean; mustChangePassword: boolean; lastLoginAt?: Date | null; createdAt?: Date };
 
 /** Vue publique d'un compte (jamais le hachage du mot de passe). */
 const publicUser = (u: UserLean) => ({
   _id: String(u._id),
   email: u.email,
   name: u.name,
+  phone: u.phone ?? "",
   role: u.role as Role,
   depotIds: (u.depots ?? []).map(String),
   active: u.active,
@@ -81,6 +82,7 @@ export async function createUser(input: UserInput) {
   const u = await User.create({
     email,
     name: input.name,
+    phone: input.phone,
     role: input.role,
     depots: input.role === "ADMIN" ? [] : input.depotIds,
     passwordHash: await hashPassword(input.password),
@@ -102,6 +104,7 @@ export async function updateUser(actor: Actor, id: string, input: UserUpdate) {
   }
 
   if (input.name !== undefined) u.name = input.name;
+  if (input.phone !== undefined) u.phone = input.phone;
   if (input.role !== undefined) u.role = input.role;
   if (input.depotIds !== undefined) {
     await checkDepots(input.depotIds);
@@ -142,4 +145,24 @@ export async function ensureDefaultUsers(password: string) {
     if (n) await add(`depot${Number(n)}@cpro.com`, `Responsable ${d.name}`, "USER", [d._id]);
   }
   return created;
+}
+
+/**
+ * Annuaire du réseau, visible par tous les utilisateurs connectés :
+ * chaque dépôt actif avec ses coordonnées et ses responsables (nom + téléphone uniquement).
+ */
+export async function getNetwork() {
+  await connectDB();
+  const [depots, users] = await Promise.all([
+    Depot.find({ active: true }).sort({ code: 1 }).lean(),
+    User.find({ active: true, role: "USER" }, { name: 1, phone: 1, depots: 1 }).lean(),
+  ]);
+  return depots.map((d) => ({
+    _id: String(d._id),
+    code: d.code,
+    name: d.name,
+    address: d.address ?? "",
+    phone: d.phone ?? "",
+    managers: users.filter((u) => (u.depots ?? []).some((id) => String(id) === String(d._id))).map((u) => ({ name: u.name, phone: u.phone ?? "" })),
+  }));
 }

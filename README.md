@@ -38,7 +38,12 @@ Voir [`.env.example`](.env.example).
   - `physique` : caisses présentes au dépôt ;
   - `réservé` : caisses engagées dans un transfert non encore reçu ;
   - `disponible = physique − réservé` : seul le disponible est vendable.
-- **Seuil d'alerte** par produit (`minStockBoxes`), appliqué à chaque dépôt : statuts *Rupture* / *Stock bas* / *OK*.
+- **Alertes de stock à deux niveaux** par produit :
+  - *seuil global* (`globalMinBoxes`, réseau entier ; vide = minimum par dépôt × nombre de dépôts) ;
+  - *minimum par dépôt* (`minStockBoxes`).
+  Statut réseau : *Rupture* (plus rien nulle part), *Stock bas* (total sous le seuil global → commander), *À rééquilibrer* (total suffisant mais un dépôt sous son minimum → un transfert suffit), *OK*. `GET /api/stock/products` donne ce statut et la répartition par dépôt et par bain.
+- **Fiche produit** (fenêtre modale) : grande photo zoomable et référence bien visible pour distinguer des carreaux ressemblants, caractéristiques, stock réseau détaillé. Ouverte depuis Vente, Stock, Réseau et les alertes du tableau de bord.
+- **Réseau** (`/reseau`) : chaque responsable consulte le stock des autres dépôts et joint leur responsable (téléphone saisi sur son compte par l'admin) par appel ou WhatsApp, avec une demande de transfert pré-rédigée. La demande reste informelle : le transfert est saisi par le dépôt qui expédie, et tracé. Un responsable n'a qu'un dépôt de travail (pas de sélecteur) ; l'admin et les responsables multi-dépôts choisissent le leur dans un panneau de cartes.
 - **Journal des mouvements** : chaque entrée, vente, casse, ajustement ou transfert est tracé avec le solde après mouvement.
 - **Paramètres** (`/parametres`, icône engrenage) : création et modification des produits et des dépôts. La **référence produit est attribuée automatiquement** (`REF-000001`, `REF-000002`…, au-dessus de la plus grande référence `REF-<nombre>` existante) et ne se modifie pas. Le **nombre de carreaux par caisse** est déduit des m²/caisse et du format, à titre indicatif seulement (jamais stocké ni utilisé dans les calculs) ; il n'est affiché que si la division tombe juste (formats nominaux comme 33×33 exclus). On **archive** au lieu de supprimer, pour garder l'historique intact. L'archivage est refusé tant qu'il reste du stock ou un transfert en transit, et il est impossible d'archiver le dernier dépôt actif. Les factures conservent le prix et la désignation en vigueur au moment de la vente.
 

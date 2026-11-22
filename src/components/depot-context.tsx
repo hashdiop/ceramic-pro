@@ -8,6 +8,8 @@ import { useAuth } from "./auth-context";
 
 interface DepotCtx {
   depots: DepotDTO[];
+  /** Dépôts où l'utilisateur peut agir (tous pour l'admin) : seuls choix possibles comme dépôt de travail. */
+  workDepots: DepotDTO[];
   /** Dépôt de travail de l'utilisateur (mémorisé sur l'appareil). */
   currentDepotId: string;
   setCurrentDepotId: (id: string) => void;
@@ -35,11 +37,13 @@ export function DepotProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<DepotCtx>(() => {
     const depots = data ?? [];
-    // Par défaut : le premier dépôt attribué à l'utilisateur (sinon le premier dépôt).
-    const own = depots.find((d) => user?.depotIds.includes(d._id));
-    const currentDepotId = depots.some((d) => d._id === stored) ? stored : (own?._id ?? depots[0]?._id ?? "");
+    // Le dépôt de travail est toujours un dépôt attribué (les autres se consultent via la page Réseau).
+    const own = user?.role === "ADMIN" ? depots : depots.filter((d) => user?.depotIds.includes(d._id));
+    const workDepots = own.length ? own : depots; // aucun dépôt attribué : consultation seule
+    const currentDepotId = workDepots.some((d) => d._id === stored) ? stored : (workDepots[0]?._id ?? "");
     return {
       depots,
+      workDepots,
       currentDepotId,
       currentDepot: depots.find((d) => d._id === currentDepotId),
       setCurrentDepotId: (id: string) => {
