@@ -31,8 +31,16 @@ export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError("Connexion au serveur impossible. Vérifiez votre réseau.");
   }
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(body?.error || `Erreur ${res.status}`);
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    // Réponse « OK » mais illisible (connexion coupée en cours de route, page d'erreur de l'hébergeur…) :
+    // surtout ne pas renvoyer {} à la place des données, la page planterait.
+    if (res.ok) throw new ApiError("Réponse incomplète du serveur. Réessayez.");
+    body = {};
+  }
+  if (!res.ok) throw new ApiError((body as { error?: string })?.error || `Erreur ${res.status}`);
   // Écriture réussie : les données affichées dans cet onglet se rechargent,
   // même sans Socket.io (hébergement serverless comme Vercel).
   if (init?.method && init.method !== "GET") window.dispatchEvent(new Event(LOCAL_MUTATION));
