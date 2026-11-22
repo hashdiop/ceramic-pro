@@ -5,6 +5,8 @@ import { Depot, Product, StockLot, Transfer } from "@/server/models";
 import type { DepotInput, DepotUpdate, ProductInput, ProductUpdate } from "@/lib/schemas";
 import { REALTIME_EVENTS } from "@/lib/realtime-events";
 import { broadcast } from "@/server/realtime";
+import { assertOwnedPublicId, deleteImage, deleteImageQuietly, isCloudinaryEnabled, isOwnedPublicId, moveImage } from "@/server/cloudinary";
+import { nextProductRef } from "./numbering";
 
 const changed = () => {
   broadcast(REALTIME_EVENTS.catalog);
@@ -22,12 +24,35 @@ export async function listProducts(opts: { includeInactive?: boolean } = {}) {
     .lean();
 }
 
+/** Une image Cloudinary doit venir de nos dossiers, et son URL correspondre à son identifiant. */
+function checkImage(imageUrl: string | undefined, imagePublicId: string | undefined) {
+  if (!imagePublicId) return;
+  assertOwnedPublicId(imagePublicId);
+  if (!imageUrl?.includes(`/${imagePublicId}`)) throw new AppError("Image incohérente : renvoyez la photo.", 400);
+}
+
 export async function createProduct(input: ProductInput) {
   await connectDB();
-  if (await Product.exists({ ref: input.ref })) throw new AppError(`La référence ${input.ref} existe déjà.`, 409);
-  const p = await Product.create(input);
-  changed();
-  return p;
+  checkImage(input.imageUrl, input.imagePublicId);
+  // Référence attribuée automatiquement ; nouvel essai si deux créations simultanées se croisent.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const p = await Product.create({ ...input, ref: await nextProductRef() });
+      changed();
+      return p;
+    } catch (err) {
+      const duplicate = err && typeof err === "object" && "code" in err && err.code === 11000;
+      if (!duplicate || attempt >= 2) throw err;
+    }
+  }
+}
+
+/** Supprime une image envoyée mais jamais enregistrée sur un produit (formulaire abandonné). */
+export async function discardUnusedImage(publicId: string) {
+  await connectDB();
+  assertOwnedPublicId(publicId);
+  if (await Product.exists({ imagePublicId: publicId })) throw new AppError("Image utilisée par un produit.", 409);
+  await deleteImage(publicId);
 }
 
 /** Caisses encore présentes ou en route pour un produit (bloque l'archivage). */
@@ -47,10 +72,12 @@ export async function updateProduct(id: string, input: ProductUpdate) {
   const current = await Product.findById(id);
   if (!current) throw new AppError("Produit introuvable", 404);
 
-  if (input.ref && input.ref !== current.ref && (await Product.exists({ ref: input.ref, _id: { $ne: current._id } }))) {
-    throw new AppError(`La référence ${input.ref} existe déjà.`, 409);
-  }
-  if (input.active === false && current.active) {
+  const imageChanged = input.imagePublicId !== undefined && input.imagePublicId !== current.imagePublicId;
+  if (imageChanged) checkImage(input.imageUrl, input.imagePublicId);
+  const archiving = input.active === false && current.active;
+  const reactivating = input.active === true && !current.active;
+
+  if (archiving) {
     const usage = await productStockUsage(current._id);
     if (usage.onHand > 0 || usage.inTransit > 0) {
       throw new AppError(
@@ -60,14 +87,38 @@ export async function updateProduct(id: string, input: ProductUpdate) {
     }
   }
 
+  const previousImage = current.imagePublicId;
   current.set(input);
-  await current.save();
+
+  // Archivage / réactivation : l'image Cloudinary suit le produit (archives ⇄ products).
+  let moved: { from: string; to: string } | null = null;
+  const imageToMove = current.imagePublicId;
+  if ((archiving || reactivating) && imageToMove && isOwnedPublicId(imageToMove) && isCloudinaryEnabled()) {
+    const inArchives = imageToMove.includes("/archives/");
+    if (archiving !== inArchives) {
+      const res = await moveImage(imageToMove, archiving);
+      current.set({ imageUrl: res.url, imagePublicId: res.publicId });
+      moved = { from: imageToMove, to: res.publicId };
+    }
+  }
+
+  try {
+    await current.save();
+  } catch (err) {
+    // Enregistrement refusé : on remet l'image à sa place pour rester cohérent.
+    if (moved) await moveImage(moved.to, !archiving).catch((e) => console.error("[cloudinary] retour impossible", e));
+    throw err;
+  }
+
+  // Image remplacée ou retirée : l'ancienne n'est plus référencée, on la supprime.
+  if (imageChanged && previousImage && previousImage !== current.imagePublicId) await deleteImageQuietly(previousImage);
+
   changed();
   return current;
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Dépôts                                                                    */
+/*  Dépôts                                                                  */
 /* -------------------------------------------------------------------------- */
 
 export async function listDepots(opts: { includeInactive?: boolean } = {}) {

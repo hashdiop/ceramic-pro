@@ -23,7 +23,12 @@ npm run dev                  # http://localhost:3000
 Voir [`.env.example`](.env.example).
 
 - **`MONGODB_URI`** (obligatoire) : **MongoDB Atlas** recommandé. Les ventes et transferts utilisent des **transactions**, qui exigent un *replica set* (fourni par Atlas, y compris l'offre gratuite). Un `mongod` local autonome ne suffit pas. `GET /api/health` indique si les transactions sont disponibles.
-- **`CLOUDINARY_*`** : intégré mais **pas encore utilisé**. Le jeu d'exemple utilise les textures locales de `public/tiles`. Le module se trouve dans `src/server/cloudinary.ts` (upload signé via `POST /api/uploads/sign`, upload serveur, suppression).
+- **`CLOUDINARY_*`** : photos des produits. Le jeu d'exemple utilise les textures locales de `public/tiles`. Fonctionnement (`src/server/cloudinary.ts`) :
+  - **envoi** : la photo est réduite dans le navigateur (1600 px max), puis envoyée directement à Cloudinary avec une signature fournie par `POST /api/uploads/sign` (le secret reste côté serveur) ;
+  - **remplacement / retrait** : l'ancienne image est supprimée de Cloudinary après l'enregistrement du produit ;
+  - **formulaire fermé sans enregistrer** : la photo envoyée est supprimée (`DELETE /api/uploads`, refusé si l'image est utilisée) ;
+  - **archivage** : l'image passe de `<CLOUDINARY_FOLDER>/products` à `<CLOUDINARY_FOLDER>/archives`, et revient à la réactivation ;
+  - les vignettes sont servies redimensionnées et compressées (`f_auto,q_auto`).
 
 ## Règles métier
 
@@ -35,7 +40,7 @@ Voir [`.env.example`](.env.example).
   - `disponible = physique − réservé` : seul le disponible est vendable.
 - **Seuil d'alerte** par produit (`minStockBoxes`), appliqué à chaque dépôt : statuts *Rupture* / *Stock bas* / *OK*.
 - **Journal des mouvements** : chaque entrée, vente, casse, ajustement ou transfert est tracé avec le solde après mouvement.
-- **Paramètres** (`/parametres`, icône engrenage) : création et modification des produits (avec calcul des m²/caisse à partir du format et du nombre de carreaux) et des dépôts. On **archive** au lieu de supprimer, pour garder l'historique intact. L'archivage est refusé tant qu'il reste du stock ou un transfert en transit, et il est impossible d'archiver le dernier dépôt actif. Les factures conservent le prix et la désignation en vigueur au moment de la vente.
+- **Paramètres** (`/parametres`, icône engrenage) : création et modification des produits et des dépôts. La **référence produit est attribuée automatiquement** (`REF-000001`, `REF-000002`…, au-dessus de la plus grande référence `REF-<nombre>` existante) et ne se modifie pas. Le **nombre de carreaux par caisse** est déduit des m²/caisse et du format, à titre indicatif seulement (jamais stocké ni utilisé dans les calculs) ; il n'est affiché que si la division tombe juste (formats nominaux comme 33×33 exclus). On **archive** au lieu de supprimer, pour garder l'historique intact. L'archivage est refusé tant qu'il reste du stock ou un transfert en transit, et il est impossible d'archiver le dernier dépôt actif. Les factures conservent le prix et la désignation en vigueur au moment de la vente.
 
 ### Transferts inter-dépôts
 

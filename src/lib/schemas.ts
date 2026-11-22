@@ -83,8 +83,8 @@ export type TransferReceptionInput = z.infer<typeof transferReceptionSchema>;
 
 /* Champs sans valeur par défaut : réutilisés tels quels pour les mises à jour partielles
    (avec Zod 4, .partial() appliquerait sinon les valeurs par défaut et écraserait les données). */
+// La référence (REF-000001…) est attribuée par le serveur et ne se modifie pas : elle n'est pas saisie.
 const productFields = z.object({
-  ref: z.string().trim().min(1, "référence requise").max(30).toUpperCase(),
   name: z.string().trim().min(1, "désignation requise").max(120),
   motif: z.string().trim().min(1, "motif requis").max(60),
   format: z.string().trim().min(1, "format requis").max(30),
@@ -104,6 +104,7 @@ export const productInputSchema = productFields.extend({
 });
 export type ProductInput = z.infer<typeof productInputSchema>;
 
+// Les champs inconnus (dont `ref`) sont ignorés par Zod : la référence ne peut pas être modifiée.
 export const productUpdateSchema = productFields.partial();
 export type ProductUpdate = z.infer<typeof productUpdateSchema>;
 

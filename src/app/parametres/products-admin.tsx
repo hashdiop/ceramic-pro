@@ -1,15 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { apiPatch, apiPost, useApi } from "@/lib/client/api";
+import { discardImage, uploadProductImage, type UploadedImage } from "@/lib/client/upload";
 import { REALTIME_EVENTS } from "@/lib/realtime-events";
+import { tilesPerBox } from "@/lib/tiles";
 import { formatCFA } from "@/lib/units";
 import type { ProductDTO } from "@/lib/types";
 import { Sheet } from "@/components/sheet";
 import { Empty, ErrorBox, ProductThumb, Spinner } from "@/components/ui";
 
 type Draft = {
-  ref: string;
   name: string;
   motif: string;
   format: string;
@@ -17,12 +18,12 @@ type Draft = {
   pricePerM2: string;
   minStockBoxes: string;
   imageUrl: string;
+  imagePublicId: string;
 };
 
-const EMPTY: Draft = { ref: "", name: "", motif: "", format: "", m2PerBox: "", pricePerM2: "", minStockBoxes: "10", imageUrl: "" };
+const EMPTY: Draft = { name: "", motif: "", format: "", m2PerBox: "", pricePerM2: "", minStockBoxes: "10", imageUrl: "", imagePublicId: "" };
 
 const toDraft = (p: ProductDTO): Draft => ({
-  ref: p.ref,
   name: p.name,
   motif: p.motif,
   format: p.format,
@@ -30,12 +31,13 @@ const toDraft = (p: ProductDTO): Draft => ({
   pricePerM2: String(p.pricePerM2),
   minStockBoxes: String(p.minStockBoxes),
   imageUrl: p.imageUrl ?? "",
+  imagePublicId: p.imagePublicId ?? "",
 });
 
-/** "60x60 cm", "20 x 120", "45X90cm" → [60, 60] (en cm). */
-function parseFormat(format: string): [number, number] | null {
-  const m = format.replace(",", ".").match(/(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)/i);
-  return m ? [Number(m[1]), Number(m[2])] : null;
+/** "4 carreaux/cs" quand le calcul tombe juste, rien sinon. */
+function tilesLabel(p: ProductDTO) {
+  const t = tilesPerBox(p.m2PerBox, p.format);
+  return t.kind === "exact" ? ` · ${t.tiles} carreaux/cs` : "";
 }
 
 export function ProductsAdmin() {
@@ -84,7 +86,7 @@ export function ProductsAdmin() {
                   {!p.active && <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-600">Archivé</span>}
                 </div>
                 <div className="truncate text-xs text-slate-500">
-                  {p.ref} · {p.motif} · {p.format} · {p.m2PerBox} m²/cs
+                  {p.ref} · {p.motif} · {p.format} · {p.m2PerBox} m²/cs{tilesLabel(p)}
                 </div>
               </div>
               <div className="text-right">
@@ -110,19 +112,118 @@ export function ProductsAdmin() {
   );
 }
 
+function TilesHint({ m2PerBox, format }: { m2PerBox: string; format: string }) {
+  const t = tilesPerBox(Number(m2PerBox), format);
+  if (t.kind === "unknown") return null;
+  return (
+    <div className="col-span-2 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600">
+      {t.kind === "exact" ? (
+        <>
+          Soit <strong className="text-slate-900">{t.tiles} carreaux</strong> par caisse (calculé, à titre indicatif).
+        </>
+      ) : (
+        <>
+          Nombre de carreaux non calculable exactement (≈ {t.approx.toLocaleString("fr-FR")}) : le format est sans doute nominal. Sans effet
+          sur les calculs, qui utilisent les m²/caisse.
+        </>
+      )}
+    </div>
+  );
+}
+
+function ImageField({
+  url,
+  name,
+  disabled,
+  onUploaded,
+  onRemove,
+}: {
+  url: string;
+  name: string;
+  disabled: boolean;
+  onUploaded: (img: UploadedImage) => void;
+  onRemove: () => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function pick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError(null);
+    setProgress(0);
+    try {
+      onUploaded(await uploadProductImage(file, setProgress));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur d'envoi");
+    } finally {
+      setProgress(null);
+    }
+  }
+
+  const uploading = progress !== null;
+  return (
+    <div>
+      <span className="label">Photo</span>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => input.current?.click()}
+          disabled={disabled || uploading}
+          className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-slate-300 bg-white text-slate-400 transition hover:border-brand-500"
+          aria-label={url ? "Changer la photo" : "Ajouter une photo"}
+        >
+          {url ? <ProductThumb src={url} alt={name || "Photo"} size="h-full w-full" px={96} /> : <span className="text-3xl leading-none">+</span>}
+          {uploading && <span className="absolute inset-0 flex items-center justify-center bg-white/80 text-sm font-bold text-slate-700">{progress}%</span>}
+        </button>
+        <div className="flex min-w-0 flex-col items-start gap-1.5">
+          <button type="button" onClick={() => input.current?.click()} disabled={disabled || uploading} className="btn-ghost min-h-9 px-3 text-sm">
+            {uploading ? "Envoi…" : url ? "Changer la photo" : "Ajouter une photo"}
+          </button>
+          {url && !uploading && (
+            <button type="button" onClick={onRemove} disabled={disabled} className="text-xs font-medium text-red-600">
+              Retirer la photo
+            </button>
+          )}
+          <span className="text-[11px] text-slate-400">JPG, PNG, WebP · réduite automatiquement avant l&apos;envoi</span>
+        </div>
+      </div>
+      {error && <p className="mt-1.5 text-xs font-medium text-red-600">{error}</p>}
+      <input ref={input} type="file" accept="image/*" onChange={pick} className="hidden" />
+    </div>
+  );
+}
+
 function ProductForm({ product, motifs, onDone }: { product: ProductDTO | null; motifs: string[]; onDone: () => void }) {
   const [d, setD] = useState<Draft>(product ? toDraft(product) : EMPTY);
-  const [tilesPerBox, setTilesPerBox] = useState("");
   const [busy, setBusy] = useState<null | "save" | "toggle">(null);
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof Draft) => (e: React.ChangeEvent<HTMLInputElement>) => setD({ ...d, [k]: e.target.value });
 
-  const dims = parseFormat(d.format);
-  const tileM2 = dims ? (dims[0] * dims[1]) / 10000 : null;
-  const computedM2 = tileM2 && Number(tilesPerBox) > 0 ? Math.round(tileM2 * Number(tilesPerBox) * 10000) / 10000 : null;
+  // Image envoyée pendant cette édition mais pas encore enregistrée sur le produit :
+  // supprimée de Cloudinary si on la remplace ou si on ferme sans enregistrer.
+  const pending = useRef<string | null>(null);
+  useEffect(
+    () => () => {
+      if (pending.current) discardImage(pending.current);
+    },
+    [],
+  );
+
+  function imageUploaded(img: UploadedImage) {
+    if (pending.current) discardImage(pending.current);
+    pending.current = img.publicId;
+    setD((x) => ({ ...x, imageUrl: img.url, imagePublicId: img.publicId }));
+  }
+  function imageRemoved() {
+    if (pending.current) discardImage(pending.current);
+    pending.current = null;
+    setD((x) => ({ ...x, imageUrl: "", imagePublicId: "" }));
+  }
 
   const payload = () => ({
-    ref: d.ref,
     name: d.name,
     motif: d.motif,
     format: d.format,
@@ -130,6 +231,7 @@ function ProductForm({ product, motifs, onDone }: { product: ProductDTO | null; 
     pricePerM2: Number(d.pricePerM2),
     minStockBoxes: Number(d.minStockBoxes || 0),
     imageUrl: d.imageUrl,
+    imagePublicId: d.imagePublicId,
   });
 
   async function run(kind: "save" | "toggle", fn: () => Promise<unknown>) {
@@ -137,6 +239,7 @@ function ProductForm({ product, motifs, onDone }: { product: ProductDTO | null; 
     setBusy(kind);
     try {
       await fn();
+      if (kind === "save") pending.current = null; // l'image appartient désormais au produit
       onDone();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur");
@@ -151,30 +254,18 @@ function ProductForm({ product, motifs, onDone }: { product: ProductDTO | null; 
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div className="flex items-center gap-3">
-        <ProductThumb src={d.imageUrl} alt={d.name || "Aperçu"} size="h-16 w-16" />
-        <div className="text-xs text-slate-500">
-          {product ? (
-            <>
-              Les factures déjà émises gardent le prix et la désignation de l&apos;époque.
-              {product.m2PerBox !== Number(d.m2PerBox) && d.m2PerBox && (
-                <span className="mt-1 block font-medium text-amber-700">
-                  Attention : le stock est compté en caisses ; changer les m²/caisse modifie la surface du stock existant.
-                </span>
-              )}
-            </>
-          ) : (
-            "Le stock se crée ensuite via Stock → Opération → Entrée fournisseur."
-          )}
-        </div>
-      </div>
+      <ImageField url={d.imageUrl} name={d.name} disabled={busy !== null} onUploaded={imageUploaded} onRemove={imageRemoved} />
 
       <div className="grid grid-cols-2 gap-3">
-        <label>
-          <span className="label">Référence *</span>
-          <input value={d.ref} onChange={set("ref")} required className="input uppercase" placeholder="REF-09" />
+        <div className="col-span-2 flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-slate-200">
+          <span className="text-slate-500">Référence</span>
+          <span className="font-semibold text-slate-900">{product ? product.ref : "attribuée automatiquement"}</span>
+        </div>
+        <label className="col-span-2">
+          <span className="label">Désignation *</span>
+          <input value={d.name} onChange={set("name")} required className="input" placeholder="Calacatta Gold Poli" />
         </label>
-        <label>
+        <label className="col-span-2">
           <span className="label">Motif *</span>
           <input value={d.motif} onChange={set("motif")} required list="motifs" className="input" placeholder="Effet Marbre" />
           <datalist id="motifs">
@@ -183,43 +274,20 @@ function ProductForm({ product, motifs, onDone }: { product: ProductDTO | null; 
             ))}
           </datalist>
         </label>
-        <label className="col-span-2">
-          <span className="label">Désignation *</span>
-          <input value={d.name} onChange={set("name")} required className="input" placeholder="Calacatta Gold Poli" />
-        </label>
         <label>
-          <span className="label">Format *</span>
-          <input value={d.format} onChange={set("format")} required className="input" placeholder="60x60 cm" />
+          <span className="label">Format (cm) *</span>
+          <input value={d.format} onChange={set("format")} required className="input" placeholder="60x60" />
         </label>
         <label>
           <span className="label">m² par caisse *</span>
           <input value={d.m2PerBox} onChange={set("m2PerBox")} required type="number" inputMode="decimal" step="0.0001" min="0.0001" className="input" />
         </label>
-      </div>
-
-      {tileM2 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-3">
-          <div className="mb-2 text-xs font-semibold text-slate-600">
-            Calcul : 1 carreau {dims![0]}×{dims![1]} cm = {tileM2.toLocaleString("fr-FR")} m²
-          </div>
-          <div className="flex items-end gap-2">
-            <label className="flex-1">
-              <span className="label">Carreaux par caisse</span>
-              <input value={tilesPerBox} onChange={(e) => setTilesPerBox(e.target.value)} type="number" inputMode="numeric" min="1" className="input" />
-            </label>
-            <button
-              type="button"
-              disabled={!computedM2}
-              onClick={() => computedM2 && setD({ ...d, m2PerBox: String(computedM2) })}
-              className="btn-ghost"
-            >
-              {computedM2 ? `Appliquer ${computedM2.toLocaleString("fr-FR")} m²` : "Appliquer"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-3">
+        <TilesHint m2PerBox={d.m2PerBox} format={d.format} />
+        {product && product.m2PerBox !== Number(d.m2PerBox) && d.m2PerBox && (
+          <p className="col-span-2 text-xs font-medium text-amber-700">
+            Attention : le stock est compté en caisses ; changer les m²/caisse modifie la surface du stock existant.
+          </p>
+        )}
         <label>
           <span className="label">Prix au m² (FCFA) *</span>
           <input value={d.pricePerM2} onChange={set("pricePerM2")} required type="number" inputMode="numeric" step="1" min="0" className="input" />
@@ -228,12 +296,13 @@ function ProductForm({ product, motifs, onDone }: { product: ProductDTO | null; 
           <span className="label">Seuil d&apos;alerte (cs)</span>
           <input value={d.minStockBoxes} onChange={set("minStockBoxes")} type="number" inputMode="numeric" step="1" min="0" className="input" />
         </label>
-        <label className="col-span-2">
-          <span className="label">URL de l&apos;image</span>
-          <input value={d.imageUrl} onChange={set("imageUrl")} className="input" placeholder="/tiles/ref-09.svg ou https://res.cloudinary.com/…" />
-          <span className="mt-1 block text-[11px] text-slate-400">L&apos;envoi direct de photos se fera via Cloudinary (prévu, non activé).</span>
-        </label>
       </div>
+
+      <p className="text-[11px] text-slate-400">
+        {product
+          ? "Les factures déjà émises gardent le prix et la désignation de l'époque."
+          : "Le stock se crée ensuite via Stock → Opération → Entrée fournisseur."}
+      </p>
 
       {error && <ErrorBox message={error} />}
 

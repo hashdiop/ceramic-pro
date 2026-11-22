@@ -1,5 +1,6 @@
 "use client";
 
+import { imageUrl } from "@/lib/images";
 import type { StockStatus, TransferStatus } from "@/lib/types";
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: React.ReactNode }) {
@@ -72,11 +73,11 @@ export function TransferBadge({ status }: { status: TransferStatus }) {
   return <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${cls}`}>{label}</span>;
 }
 
-export function ProductThumb({ src, alt, size = "h-14 w-14" }: { src?: string; alt: string; size?: string }) {
+export function ProductThumb({ src, alt, size = "h-14 w-14", px = 64 }: { src?: string; alt: string; size?: string; px?: number }) {
   if (!src) return <div className={`${size} shrink-0 rounded-lg bg-slate-200`} aria-hidden />;
-  // Les textures d'exemple sont des SVG locaux ; Cloudinary servira les vraies photos.
+  // <img> plutôt que next/image : Cloudinary redimensionne déjà (voir imageUrl), et les textures d'exemple sont des SVG locaux.
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={alt} className={`${size} shrink-0 rounded-lg border border-slate-200 object-cover`} loading="lazy" />;
+  return <img src={imageUrl(src, px)} alt={alt} className={`${size} shrink-0 rounded-lg border border-slate-200 object-cover`} loading="lazy" />;
 }
 
 export function Chips<T extends string>({ options, value, onChange }: { options: readonly T[]; value: T; onChange: (v: T) => void }) {
