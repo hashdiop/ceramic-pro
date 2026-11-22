@@ -6,6 +6,8 @@ import { getSocket } from "./socket";
 
 export class ApiError extends Error {}
 
+const LOCAL_MUTATION = "ceramique:mutation";
+
 /** Au-delà, la requête est abandonnée : un bouton ne doit jamais rester figé. */
 const TIMEOUT_MS = 30_000;
 
@@ -31,6 +33,9 @@ export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
   }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(body?.error || `Erreur ${res.status}`);
+  // Écriture réussie : les données affichées dans cet onglet se rechargent,
+  // même sans Socket.io (hébergement serverless comme Vercel).
+  if (init?.method && init.method !== "GET") window.dispatchEvent(new Event(LOCAL_MUTATION));
   return body as T;
 }
 
@@ -76,7 +81,18 @@ export function useApi<T>(url: string | null, events: RealtimeEvent[] = []) {
     const list = eventsKey.split("|");
     const onEvent = () => reload();
     list.forEach((e) => socket.on(e, onEvent));
-    return () => list.forEach((e) => socket.off(e, onEvent));
+    // Sans temps réel (Vercel), on recharge aussi après une écriture faite dans cet onglet
+    // et au retour sur l'onglet, pour voir les changements faits ailleurs.
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && !socket.connected) reload();
+    };
+    window.addEventListener(LOCAL_MUTATION, onEvent);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      list.forEach((e) => socket.off(e, onEvent));
+      window.removeEventListener(LOCAL_MUTATION, onEvent);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [eventsKey, reload]);
 
   return { data, error, loading, reload };

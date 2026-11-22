@@ -18,7 +18,7 @@ export function Dashboard() {
     <>
       <PageHeader
         title="Tableau de bord"
-        subtitle="Ventes, stock et transferts — mis à jour en temps réel"
+        subtitle="Ventes, stock et transferts"
         actions={
           <Link href="/vente" className="btn-accent">
             + Nouvelle vente
