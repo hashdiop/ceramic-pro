@@ -9,7 +9,7 @@ import type { MovementDTO } from "@/lib/types";
 import { useDepots } from "@/components/depot-context";
 import { Empty, ErrorBox, PageHeader, Spinner } from "@/components/ui";
 
-const TYPE_LABEL: Record<string, [string, string]> = {
+export const TYPE_LABEL: Record<string, [string, string]> = {
   ENTREE: ["Entrée", "bg-emerald-100 text-emerald-700"],
   VENTE: ["Vente", "bg-slate-200 text-slate-700"],
   TRANSFERT_SORTIE: ["Transfert sortie", "bg-sky-100 text-sky-700"],
@@ -61,6 +61,7 @@ export function MovementsView() {
                 <div className="mt-1 truncate text-sm font-semibold text-slate-800">{m.product?.name ?? "—"}</div>
                 <div className="text-xs text-slate-500">
                   {m.depot?.name} · bain {m.lot} · {formatDateTime(m.createdAt)}
+                  {m.createdByName ? ` · par ${m.createdByName}` : ""}
                 </div>
                 {m.note && <div className="text-xs italic text-slate-400">{m.note}</div>}
               </div>

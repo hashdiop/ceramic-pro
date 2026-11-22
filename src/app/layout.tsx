@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Suspense } from "react";
-import { AppShell } from "@/components/app-shell";
-import { DepotProvider } from "@/components/depot-context";
+import { Providers } from "@/components/providers";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
@@ -25,9 +24,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full font-sans" suppressHydrationWarning>
         {/* Fournisseur et coque dans la même frontière : hydratés ensemble (pas d'écart serveur/client). */}
         <Suspense>
-          <DepotProvider>
-            <AppShell>{children}</AppShell>
-          </DepotProvider>
+          <Providers>{children}</Providers>
         </Suspense>
       </body>
     </html>

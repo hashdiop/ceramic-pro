@@ -125,3 +125,37 @@ export type DepotInput = z.infer<typeof depotInputSchema>;
 
 export const depotUpdateSchema = depotFields.partial();
 export type DepotUpdate = z.infer<typeof depotUpdateSchema>;
+
+/* ------------------------------- Comptes (RBAC) ------------------------------- */
+
+export const loginSchema = z.object({
+  email: z.string().trim().email("e-mail invalide"),
+  password: z.string().min(1, "mot de passe requis"),
+});
+
+export const passwordChangeSchema = z.object({
+  currentPassword: z.string().min(1, "mot de passe actuel requis"),
+  newPassword: z.string().min(8, "8 caractères minimum").max(100),
+});
+
+const userRole = z.enum(["ADMIN", "USER"]);
+
+export const userInputSchema = z.object({
+  email: z.string().trim().email("e-mail invalide").max(120),
+  name: z.string().trim().min(1, "nom requis").max(80),
+  role: userRole.default("USER"),
+  depotIds: z.array(objectId).default([]),
+  /** Mot de passe provisoire : l'utilisateur devra le changer à sa première connexion. */
+  password: z.string().min(8, "8 caractères minimum").max(100),
+});
+export type UserInput = z.infer<typeof userInputSchema>;
+
+export const userUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  role: userRole.optional(),
+  depotIds: z.array(objectId).optional(),
+  active: z.boolean().optional(),
+  /** Nouveau mot de passe provisoire (changement obligatoire à la prochaine connexion). */
+  resetPassword: z.string().min(8, "8 caractères minimum").max(100).optional(),
+});
+export type UserUpdate = z.infer<typeof userUpdateSchema>;

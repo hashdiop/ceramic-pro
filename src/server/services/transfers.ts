@@ -3,7 +3,7 @@ import { connectDB, withTransaction } from "@/server/db";
 import { AppError } from "@/server/errors";
 import { Depot, Product, Transfer, type TransferStatus } from "@/server/models";
 import type { TransferInput, TransferReceptionInput } from "@/lib/schemas";
-import type { Actor } from "@/server/context";
+import { assertCanWriteDepot, type Actor } from "@/server/context";
 import { applyMovement } from "./stock";
 import { nextNumber } from "./numbering";
 import { REALTIME_EVENTS } from "@/lib/realtime-events";
@@ -25,6 +25,8 @@ export async function createTransfer(input: TransferInput, actor: Actor) {
   await connectDB();
   const [from, to] = await Promise.all([Depot.findById(input.fromDepotId), Depot.findById(input.toDepotId)]);
   if (!from || !to) throw new AppError("Dépôt introuvable", 404);
+  // C'est le dépôt expéditeur qui déclare le transfert.
+  assertCanWriteDepot(actor, from._id, from.name, "expédier un transfert");
 
   // Fusionne les lignes identiques (même produit + même bain).
   const merged = new Map<string, { productId: string; lot: string; boxes: number }>();
@@ -68,6 +70,7 @@ export async function createTransfer(input: TransferInput, actor: Actor) {
           vehicle: input.vehicle,
           note: input.note,
           createdBy: actor.id,
+          createdByName: actor.name,
           sentAt: new Date(),
           lines: lines.map((l) => {
             const p = byId.get(l.productId)!;
@@ -105,6 +108,8 @@ export async function receiveTransfer(id: string, input: TransferReceptionInput,
     const t = await Transfer.findById(id).session(session);
     if (!t) throw new AppError("Transfert introuvable", 404);
     if (t.status !== "EN_TRANSIT") throw new AppError(`Ce transfert est déjà ${t.status === "RECU" ? "reçu" : "annulé"}.`, 409);
+    // Seul le dépôt destinataire valide la réception.
+    assertCanWriteDepot(actor, t.toDepot, "le dépôt destinataire", "valider la réception");
 
     const received = new Map(input.lines.map((l) => [l.lineId, l]));
     for (const line of t.lines) {
@@ -163,6 +168,7 @@ export async function cancelTransfer(id: string, actor: Actor) {
     const t = await Transfer.findById(id).session(session);
     if (!t) throw new AppError("Transfert introuvable", 404);
     if (t.status !== "EN_TRANSIT") throw new AppError("Seul un transfert en transit peut être annulé.", 409);
+    assertCanWriteDepot(actor, t.fromDepot, "le dépôt expéditeur", "annuler ce transfert");
     for (const line of t.lines) {
       await applyMovement(session, {
         type: "TRANSFERT_SORTIE",

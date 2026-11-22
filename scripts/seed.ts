@@ -25,7 +25,9 @@ async function main() {
   const { createTransfer, receiveTransfer } = await import("@/server/services/transfers");
   const { DEPOTS, PRODUCTS, STOCK, tileSvg } = await import("./seed-data");
 
-  const actor = { id: "seed", name: "Jeu d'exemple" };
+  const { SYSTEM_ACTOR } = await import("@/server/context");
+  const { ensureDefaultUsers } = await import("@/server/services/users");
+  const actor = { ...SYSTEM_ACTOR, id: "seed", name: "Jeu d'exemple" };
   const reset = process.argv.includes("--reset");
 
   await connectDB();
@@ -38,13 +40,13 @@ async function main() {
     }
   }
   if (reset) {
-    for (const m of [models.Counter, models.Product, models.Depot, models.StockLot, models.StockMovement, models.Transfer, models.Invoice]) {
+    for (const m of [models.Counter, models.Product, models.Depot, models.StockLot, models.StockMovement, models.Transfer, models.Invoice, models.User]) {
       await m.collection.deleteMany({});
     }
     console.log("Base vidée.");
   }
   // Crée collections et index avant les transactions (requis par MongoDB).
-  for (const m of [models.Counter, models.Product, models.Depot, models.StockLot, models.StockMovement, models.Transfer, models.Invoice]) {
+  for (const m of [models.Counter, models.Product, models.Depot, models.StockLot, models.StockMovement, models.Transfer, models.Invoice, models.User]) {
     await m.createCollection().catch(() => undefined);
     await m.syncIndexes();
   }
@@ -162,6 +164,11 @@ async function main() {
     actor,
   );
   console.log("2 transferts d'exemple (1 reçu, 1 en transit).");
+
+  // Comptes par défaut (le mot de passe n'est jamais écrit dans le dépôt de code).
+  const pwd = process.env.USERS_DEFAULT_PASSWORD;
+  if (pwd) console.log("Comptes créés :", (await ensureDefaultUsers(pwd)).join(", ") || "aucun (déjà présents)");
+  else console.log("Comptes non créés : définissez USERS_DEFAULT_PASSWORD (ou lancez npm run users:init).");
 
   await mongoose.disconnect();
   console.log("Jeu de données chargé ✔");

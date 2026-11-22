@@ -3,7 +3,7 @@ import { connectDB, withTransaction } from "@/server/db";
 import { AppError } from "@/server/errors";
 import { Depot, Product, StockLot, StockMovement, Transfer, type MovementType } from "@/server/models";
 import type { StockEntryInput } from "@/lib/schemas";
-import type { Actor } from "@/server/context";
+import { assertCanWriteDepot, type Actor } from "@/server/context";
 import { REALTIME_EVENTS } from "@/lib/realtime-events";
 import { broadcast } from "@/server/realtime";
 
@@ -93,6 +93,7 @@ export async function applyMovement(session: ClientSession, a: MoveArgs) {
           refNumber: a.refNumber ?? "",
           note: a.note ?? "",
           createdBy: a.actor.id,
+          createdByName: a.actor.name,
         },
       ],
       { session },
@@ -110,6 +111,7 @@ export async function recordStockOperation(input: StockEntryInput, actor: Actor)
   ]);
   if (!depot) throw new AppError("Dépôt introuvable", 404);
   if (!product) throw new AppError("Produit introuvable", 404);
+  assertCanWriteDepot(actor, depot._id, depot.name, "modifier le stock");
 
   let delta = input.quantityBoxes;
   if (input.type === "ENTREE") delta = Math.abs(delta);

@@ -40,6 +40,11 @@ export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
     if (res.ok) throw new ApiError("Réponse incomplète du serveur. Réessayez.");
     body = {};
   }
+  // Session expirée ou révoquée : retour à la connexion (sauf sur la page de connexion elle-même).
+  if (res.status === 401 && !url.startsWith("/api/auth/login") && window.location.pathname !== "/login") {
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- rechargement complet voulu après expiration de session
+    window.location.href = `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+  }
   if (!res.ok) throw new ApiError((body as { error?: string })?.error || `Erreur ${res.status}`);
   // Écriture réussie : les données affichées dans cet onglet se rechargent,
   // même sans Socket.io (hébergement serverless comme Vercel).

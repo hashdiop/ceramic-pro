@@ -1,9 +1,9 @@
-import { route } from "@/server/api";
+import { publicRoute } from "@/server/api";
 import { connectDB } from "@/server/db";
 import { isCloudinaryEnabled } from "@/server/cloudinary";
 
 /** Vérifie la connexion MongoDB et le support des transactions (replica set). */
-export const GET = route(async () => {
+export const GET = publicRoute(async () => {
   const conn = await connectDB();
   const hello = await conn.connection.db!.admin().command({ hello: 1 });
   return {

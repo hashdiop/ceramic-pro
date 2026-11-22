@@ -9,7 +9,8 @@
     "lint": "eslint",
     "dev:next": "next dev",
     "seed": "tsx scripts/seed.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "users:init": "tsx scripts/users-init.ts"
   },
   "dependencies": {
     "cloudinary": "^2.11.0",

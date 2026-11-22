@@ -68,10 +68,25 @@ src/app/                  Pages (mobile en priorité) et routes API (src/app/api
 src/components/           Coque de l'app (navigation basse mobile), UI, contexte dépôt
 src/lib/                  Code partagé client/serveur : calculs, schémas Zod, types
 src/server/               Serveur uniquement : DB, modèles Mongoose, services métier
-  context.ts              Utilisateur courant : point d'entrée du futur RBAC
+  context.ts              Utilisateur connecté et règles d'accès (RBAC)
   services/               stock, transferts, factures, catalogue, tableau de bord
 ```
 
-## RBAC (à venir)
+## Comptes et droits (RBAC)
 
-Pas encore d'authentification : **ne pas déployer publiquement**. Toutes les écritures passent par `src/server/services` et l'utilisateur est fourni par `getActor()` (`src/server/context.ts`). C'est le seul point à brancher pour l'authentification et les rôles. Les champs `createdBy` / `receivedBy` sont déjà enregistrés.
+| Action | Administrateur | Utilisateur dépôt |
+| --- | --- | --- |
+| Consulter tous les dépôts (stock, factures, transferts, journal) | ✅ | ✅ |
+| Vendre, entrée / ajustement / casse de stock | ✅ partout | sur ses dépôts uniquement |
+| Expédier un transfert | ✅ | depuis ses dépôts |
+| Valider la réception | ✅ | vers ses dépôts |
+| Annuler un transfert | ✅ | dépôt expéditeur |
+| Produits, dépôts, photos (Paramètres) | ✅ | consultation |
+| Espace admin : comptes, supervision | ✅ | — |
+
+- **Toutes les règles sont vérifiées côté serveur** (`src/server/context.ts` : `getActor`, `assertCanWriteDepot`, `requireAdmin`) ; l'interface ne fait que les refléter (boutons masqués, bandeau « Consultation seule »).
+- **Session** : cookie httpOnly signé (HMAC, `AUTH_SECRET`), 7 jours. L'utilisateur est rechargé à chaque requête : désactiver un compte ou réinitialiser son mot de passe coupe immédiatement ses sessions. `src/proxy.ts` redirige vers `/login` les pages consultées sans session.
+- **Mots de passe** : hachés avec scrypt (module `crypto` de Node). Tout mot de passe provisoire (création, réinitialisation) doit être changé à la connexion suivante.
+- **Comptes par défaut** : `USERS_DEFAULT_PASSWORD="…" npm run users:init` crée `admin@cpro.com` et `depot{N}@cpro.com` pour chaque dépôt actif `DEP-N` (idempotent, ne modifie jamais un compte existant). Le mot de passe n'est pas écrit dans le code.
+- Les opérations enregistrent leur auteur (`createdBy`, `createdByName`), visible dans le journal et la supervision.
+- Socket.io diffuse seulement des signaux de rafraîchissement (aucune donnée) : il n'est pas authentifié.

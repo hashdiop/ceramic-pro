@@ -40,7 +40,7 @@ function tilesLabel(p: ProductDTO) {
   return t.kind === "exact" ? ` · ${t.tiles} carreaux/cs` : "";
 }
 
-export function ProductsAdmin() {
+export function ProductsAdmin({ readOnly = false }: { readOnly?: boolean }) {
   const { data, error, loading } = useApi<ProductDTO[]>("/api/products?all=1", [REALTIME_EVENTS.catalog]);
   const [q, setQ] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -56,9 +56,11 @@ export function ProductsAdmin() {
     <>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un produit…" className="input min-w-0 flex-1" />
-        <button type="button" onClick={() => setEditing("new")} className="btn-accent">
-          + Nouveau produit
-        </button>
+        {!readOnly && (
+          <button type="button" onClick={() => setEditing("new")} className="btn-accent">
+            + Nouveau produit
+          </button>
+        )}
       </div>
       {archivedCount > 0 && (
         <label className="mb-3 flex items-center gap-2 text-sm text-slate-600">
@@ -76,7 +78,8 @@ export function ProductsAdmin() {
           <li key={p._id}>
             <button
               type="button"
-              onClick={() => setEditing(p)}
+              onClick={() => !readOnly && setEditing(p)}
+              disabled={readOnly}
               className={`card flex w-full items-center gap-3 p-3 text-left transition hover:border-brand-500 ${p.active ? "" : "opacity-60"}`}
             >
               <ProductThumb src={p.imageUrl} alt={p.name} size="h-12 w-12" />

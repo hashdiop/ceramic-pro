@@ -5,16 +5,32 @@ import { getActor, type Actor } from "@/server/context";
 
 /**
  * Enveloppe commune des routes API : rendu à la demande (jamais prérendu),
- * identité de l'utilisateur (point d'entrée du futur RBAC), gestion des erreurs.
+ * utilisateur connecté obligatoire (RBAC), gestion des erreurs.
  */
-export function route<C = unknown>(fn: (req: Request, ctx: C, actor: Actor) => Promise<unknown>) {
+export function route<C = unknown>(
+  fn: (req: Request, ctx: C, actor: Actor) => Promise<unknown>,
+  opts: { allowPendingPassword?: boolean } = {},
+) {
   return async (req: Request, ctx: C) => {
     // Hors du try : pendant le build, Next interrompt ici le prérendu (signal interne à ne pas intercepter).
     await connection();
     try {
-      const actor = await getActor();
+      const actor = await getActor(opts);
       const data = await fn(req, ctx, actor);
-      return NextResponse.json(data ?? { ok: true });
+      return data instanceof Response ? data : NextResponse.json(data ?? { ok: true });
+    } catch (err) {
+      return errorResponse(err);
+    }
+  };
+}
+
+/** Route accessible sans connexion (connexion, état du service). */
+export function publicRoute<C = unknown>(fn: (req: Request, ctx: C) => Promise<unknown>) {
+  return async (req: Request, ctx: C) => {
+    await connection();
+    try {
+      const data = await fn(req, ctx);
+      return data instanceof Response ? data : NextResponse.json(data ?? { ok: true });
     } catch (err) {
       return errorResponse(err);
     }

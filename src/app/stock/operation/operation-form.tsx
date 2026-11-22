@@ -6,6 +6,7 @@ import { apiPost, useApi } from "@/lib/client/api";
 import { REALTIME_EVENTS } from "@/lib/realtime-events";
 import type { AvailableLotDTO, ProductDTO } from "@/lib/types";
 import { useDepots } from "@/components/depot-context";
+import { useAuth } from "@/components/auth-context";
 import { ErrorBox, PageHeader } from "@/components/ui";
 
 const TYPES = [
@@ -15,7 +16,10 @@ const TYPES = [
 ] as const;
 
 export function StockOperationForm() {
-  const { depots, currentDepotId } = useDepots();
+  const { depots: allDepots, currentDepotId } = useDepots();
+  const { canWrite } = useAuth();
+  // Seuls les dépôts attribués sont proposés : on ne mouvemente que son propre stock.
+  const depots = allDepots.filter((d) => canWrite(d._id));
   const products = useApi<ProductDTO[]>("/api/products", [REALTIME_EVENTS.catalog]);
 
   const [type, setType] = useState<(typeof TYPES)[number]["value"]>("ENTREE");
@@ -28,7 +32,7 @@ export function StockOperationForm() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
-  const effectiveDepot = depotId || currentDepotId;
+  const effectiveDepot = depotId || (depots.some((d) => d._id === currentDepotId) ? currentDepotId : (depots[0]?._id ?? ""));
   const effectiveProduct = productId || products.data?.[0]?._id || "";
   const lots = useApi<AvailableLotDTO[]>(effectiveDepot ? `/api/stock/lots?depotId=${effectiveDepot}` : null, [REALTIME_EVENTS.stock]);
   const productLots = (lots.data ?? []).filter((l) => l.productId === effectiveProduct);
@@ -64,6 +68,11 @@ export function StockOperationForm() {
   return (
     <>
       <PageHeader title="Opération de stock" subtitle="Chaque opération est inscrite au journal des mouvements" />
+      {allDepots.length > 0 && depots.length === 0 && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <strong>Consultation seule</strong> : aucun dépôt ne vous est attribué, vous ne pouvez pas modifier le stock.
+        </div>
+      )}
       <form onSubmit={submit} className="card mx-auto max-w-xl space-y-4 p-4 sm:p-6">
         <div className="grid grid-cols-3 gap-1.5 rounded-xl bg-slate-100 p-1">
           {TYPES.map((t) => (

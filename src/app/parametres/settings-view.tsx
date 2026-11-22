@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui";
+import { useAuth } from "@/components/auth-context";
 import { ProductsAdmin } from "./products-admin";
 import { DepotsAdmin } from "./depots-admin";
 
@@ -14,6 +15,7 @@ export function SettingsView() {
   const router = useRouter();
   const params = useSearchParams();
   const tab = params.get("onglet") === "depots" ? "depots" : "produits";
+  const { isAdmin } = useAuth();
 
   return (
     <>
@@ -30,7 +32,12 @@ export function SettingsView() {
           </button>
         ))}
       </div>
-      {tab === "produits" ? <ProductsAdmin /> : <DepotsAdmin />}
+      {!isAdmin && (
+        <p className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+          <strong>Consultation seule</strong> : le catalogue et les dépôts sont gérés par l&apos;administrateur.
+        </p>
+      )}
+      {tab === "produits" ? <ProductsAdmin readOnly={!isAdmin} /> : <DepotsAdmin readOnly={!isAdmin} />}
     </>
   );
 }

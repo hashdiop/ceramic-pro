@@ -15,6 +15,13 @@ export class AppError extends Error {
 /** Libellés lisibles des champs, pour les messages de validation. */
 const FIELD_LABELS: Record<string, string> = {
   ref: "Référence",
+  email: "E-mail",
+  password: "Mot de passe",
+  currentPassword: "Mot de passe actuel",
+  newPassword: "Nouveau mot de passe",
+  resetPassword: "Mot de passe provisoire",
+  depotIds: "Dépôts attribués",
+  role: "Rôle",
   name: "Nom",
   motif: "Motif",
   format: "Format",

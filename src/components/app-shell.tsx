@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getSocket } from "@/lib/client/socket";
+import { useAuth } from "./auth-context";
 import { useDepots } from "./depot-context";
 
 const NAV = [
@@ -45,6 +46,7 @@ function useRealtimeStatus() {
 
 function DepotSwitcher() {
   const { depots, currentDepotId, setCurrentDepotId } = useDepots();
+  const { canWrite } = useAuth();
   if (!depots.length) return null;
   return (
     <label className="flex items-center gap-2 text-xs text-slate-300">
@@ -58,10 +60,78 @@ function DepotSwitcher() {
         {depots.map((d) => (
           <option key={d._id} value={d._id}>
             {d.code} — {d.name}
+              {canWrite(d._id) ? "" : " (consultation)"}
           </option>
         ))}
       </select>
     </label>
+  );
+}
+
+function UserMenu({ active }: { active: boolean }) {
+  const { user, isAdmin, logout } = useAuth();
+  const { depots } = useDepots();
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- referme le menu après navigation
+  useEffect(() => setOpen(false), [pathname]);
+  if (!user) return null;
+
+  const initials = user.name
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  const scope = isAdmin
+    ? "Administrateur · tous les dépôts"
+    : depots
+        .filter((d) => user.depotIds.includes(d._id))
+        .map((d) => d.name)
+        .join(", ") || "Aucun dépôt attribué";
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Menu utilisateur"
+        aria-expanded={open}
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold transition ${
+          active || open ? "bg-brand-500 text-slate-900" : "bg-slate-700 text-white hover:bg-slate-600"
+        }`}
+      >
+        {initials || "?"}
+      </button>
+      {open && (
+        <>
+          <button type="button" aria-label="Fermer le menu" className="fixed inset-0 z-40 cursor-default" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-xl bg-white text-slate-800 shadow-xl ring-1 ring-slate-200">
+            <div className="border-b border-slate-100 px-4 py-3">
+              <div className="truncate text-sm font-bold">{user.name}</div>
+              <div className="truncate text-xs text-slate-500">{user.email}</div>
+              <div className="mt-1 text-[11px] font-medium text-brand-700">{scope}</div>
+            </div>
+            <nav className="py-1 text-sm">
+              {isAdmin && (
+                <Link href="/admin" className="block px-4 py-2.5 hover:bg-slate-50">
+                  Espace admin
+                </Link>
+              )}
+              <Link href="/parametres" className="flex items-center gap-2 px-4 py-2.5 hover:bg-slate-50">
+                <Icon d={SETTINGS_ICON} className="h-4 w-4" /> Paramètres {isAdmin ? "" : "(consultation)"}
+              </Link>
+              <Link href="/compte" className="block px-4 py-2.5 hover:bg-slate-50">
+                Mon compte · mot de passe
+              </Link>
+              <button type="button" onClick={logout} className="block w-full px-4 py-2.5 text-left font-medium text-red-600 hover:bg-red-50">
+                Se déconnecter
+              </button>
+            </nav>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -98,16 +168,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-2 sm:gap-3">
             <DepotSwitcher />
-            <Link
-              href="/parametres"
-              title="Paramètres"
-              aria-label="Paramètres"
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition ${
-                isActive("/parametres") ? "bg-brand-500 text-slate-900" : "text-slate-300 hover:bg-slate-800"
-              }`}
-            >
-              <Icon d={SETTINGS_ICON} />
-            </Link>
+            <UserMenu active={isActive("/parametres") || isActive("/admin") || isActive("/compte")} />
             <span
               className={`h-2.5 w-2.5 shrink-0 rounded-full ${online ? "bg-emerald-400" : "bg-slate-500"}`}
               title={online ? "Temps réel connecté" : "Temps réel déconnecté"}

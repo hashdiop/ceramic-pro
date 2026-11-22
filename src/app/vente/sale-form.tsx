@@ -9,6 +9,7 @@ import { CLIENT_TYPES, PAYMENT_METHODS } from "@/lib/schemas";
 import { formatCFA, formatM2, m2ForBoxes } from "@/lib/units";
 import type { InvoiceDTO, ProductDTO, StockRowDTO } from "@/lib/types";
 import { useDepots } from "@/components/depot-context";
+import { ReadOnlyNotice, useAuth } from "@/components/auth-context";
 import { Chips, Empty, ErrorBox, PageHeader, ProductThumb, Spinner } from "@/components/ui";
 
 interface CartItem {
@@ -30,6 +31,8 @@ const toCalc = (p: ProductDTO): CalcProduct => ({
 export function SaleForm() {
   const router = useRouter();
   const { currentDepot, currentDepotId } = useDepots();
+  const { canWrite } = useAuth();
+  const writable = canWrite(currentDepotId);
   const products = useApi<ProductDTO[]>("/api/products", [REALTIME_EVENTS.catalog]);
   const stock = useApi<StockRowDTO[]>(currentDepotId ? `/api/stock?depotId=${currentDepotId}` : null, [REALTIME_EVENTS.stock]);
 
@@ -121,6 +124,7 @@ export function SaleForm() {
   return (
     <>
       <PageHeader title="Nouvelle vente" subtitle={currentDepot ? `Sortie de stock : ${currentDepot.name}` : undefined} />
+      {!writable && currentDepot && <ReadOnlyNotice depotName={currentDepot.name} action="vendre depuis ce dépôt (changez de dépôt en haut de l'écran)" />}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6">
         {/* ------------------------------ Catalogue ------------------------------ */}
@@ -358,7 +362,7 @@ export function SaleForm() {
               <button
                 type="button"
                 onClick={save}
-                disabled={saving || calc.lines.length === 0 || Boolean(calc.error) || stockProblems > 0}
+                disabled={!writable || saving || calc.lines.length === 0 || Boolean(calc.error) || stockProblems > 0}
                 className="btn-success mt-2 w-full"
               >
                 {saving ? "Enregistrement…" : "✓ Enregistrer la vente"}

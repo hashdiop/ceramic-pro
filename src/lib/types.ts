@@ -69,6 +69,7 @@ export interface MovementDTO {
   refNumber: string;
   note: string;
   createdBy: string;
+  createdByName?: string;
   createdAt: string;
 }
 
@@ -157,4 +158,29 @@ export interface DashboardDTO {
   recent: InvoiceDTO[];
   alerts: StockRowDTO[];
   inTransitCount: number;
+}
+
+export type Role = "ADMIN" | "USER";
+
+/** Utilisateur connecté (GET /api/auth/me). */
+export interface SessionUserDTO {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  depotIds: string[];
+  mustChangePassword: boolean;
+}
+
+/** Compte vu par l'administrateur (GET /api/users). */
+export interface UserDTO {
+  _id: string;
+  email: string;
+  name: string;
+  role: Role;
+  depotIds: string[];
+  active: boolean;
+  mustChangePassword: boolean;
+  lastLoginAt: string | null;
+  createdAt: string | null;
 }

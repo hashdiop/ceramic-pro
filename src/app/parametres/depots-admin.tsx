@@ -9,7 +9,7 @@ import { Empty, ErrorBox, Spinner } from "@/components/ui";
 
 type Draft = { code: string; name: string; address: string; phone: string };
 
-export function DepotsAdmin() {
+export function DepotsAdmin({ readOnly = false }: { readOnly?: boolean }) {
   const depots = useApi<DepotDTO[]>("/api/depots?all=1", [REALTIME_EVENTS.catalog]);
   const stock = useApi<StockRowDTO[]>("/api/stock", [REALTIME_EVENTS.stock]);
   const [editing, setEditing] = useState<DepotDTO | "new" | null>(null);
@@ -27,9 +27,11 @@ export function DepotsAdmin() {
   return (
     <>
       <div className="mb-3 flex justify-end">
-        <button type="button" onClick={() => setEditing("new")} className="btn-accent">
-          + Nouveau dépôt
-        </button>
+        {!readOnly && (
+          <button type="button" onClick={() => setEditing("new")} className="btn-accent">
+            + Nouveau dépôt
+          </button>
+        )}
       </div>
       {depots.error && <ErrorBox message={depots.error} />}
       {depots.loading && !depots.data && <Spinner />}
@@ -42,7 +44,8 @@ export function DepotsAdmin() {
             <li key={d._id}>
               <button
                 type="button"
-                onClick={() => setEditing(d)}
+                onClick={() => !readOnly && setEditing(d)}
+                disabled={readOnly}
                 className={`card block w-full p-4 text-left transition hover:border-brand-500 ${d.active === false ? "opacity-60" : ""}`}
               >
                 <div className="flex items-center justify-between gap-2">

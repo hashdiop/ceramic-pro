@@ -7,22 +7,39 @@ import { REALTIME_EVENTS } from "@/lib/realtime-events";
 import { formatDateTime, formatM2, m2ForBoxes } from "@/lib/units";
 import type { TransferDTO } from "@/lib/types";
 import { ErrorBox, PageHeader, Spinner, TransferBadge } from "@/components/ui";
+import { useAuth } from "@/components/auth-context";
 
 export function TransferDetail({ id }: { id: string }) {
-  const { data: t, error, loading, reload } = useApi<TransferDTO>(`/api/transfers/${id}`, [REALTIME_EVENTS.transfers]);
-  const [received, setReceived] = useState<Record<string, { boxes: number; note: string }>>({});
+  const {
+    data: t,
+    error,
+    loading,
+    reload,
+  } = useApi<TransferDTO>(`/api/transfers/${id}`, [REALTIME_EVENTS.transfers]);
+  const [received, setReceived] = useState<
+    Record<string, { boxes: number; note: string }>
+  >({});
   const [receivedBy, setReceivedBy] = useState("");
   const [receptionNote, setReceptionNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState<"receive" | "cancel" | null>(null);
+  const [confirming, setConfirming] = useState<"receive" | "cancel" | null>(
+    null,
+  );
+  const { canWrite } = useAuth();
 
   if (error) return <ErrorBox message={error} />;
   if (loading && !t) return <Spinner />;
   if (!t) return null;
 
-  const get = (lineId: string, sent: number) => received[lineId] ?? { boxes: sent, note: "" };
-  const gaps = t.lines.filter((l) => get(l._id, l.sentBoxes).boxes < l.sentBoxes);
+  // Réception par le dépôt destinataire, annulation par le dépôt expéditeur (vérifié aussi côté serveur).
+  const canReceive = t.status === "EN_TRANSIT" && canWrite(t.toDepot?._id);
+  const canCancel = t.status === "EN_TRANSIT" && canWrite(t.fromDepot?._id);
+  const get = (lineId: string, sent: number) =>
+    received[lineId] ?? { boxes: sent, note: "" };
+  const gaps = t.lines.filter(
+    (l) => get(l._id, l.sentBoxes).boxes < l.sentBoxes,
+  );
 
   async function act(kind: "receive" | "cancel") {
     if (!t) return;
@@ -33,7 +50,11 @@ export function TransferDetail({ id }: { id: string }) {
         await apiPost(`/api/transfers/${t._id}/receive`, {
           receivedBy,
           receptionNote,
-          lines: t.lines.map((l) => ({ lineId: l._id, receivedBoxes: get(l._id, l.sentBoxes).boxes, note: get(l._id, l.sentBoxes).note })),
+          lines: t.lines.map((l) => ({
+            lineId: l._id,
+            receivedBoxes: get(l._id, l.sentBoxes).boxes,
+            note: get(l._id, l.sentBoxes).note,
+          })),
         });
       } else {
         await apiPost(`/api/transfers/${t._id}/cancel`);
@@ -78,45 +99,72 @@ export function TransferDetail({ id }: { id: string }) {
           {t.note && <Info label="Note" value={t.note} />}
           {t.status === "RECU" && (
             <>
-              <Info label="Reçu le" value={t.receivedAt ? formatDateTime(t.receivedAt) : "—"} />
+              <Info
+                label="Reçu le"
+                value={t.receivedAt ? formatDateTime(t.receivedAt) : "—"}
+              />
               <Info label="Réceptionné par" value={t.receivedBy || "—"} />
-              {t.receptionNote && <Info label="Note réception" value={t.receptionNote} />}
+              {t.receptionNote && (
+                <Info label="Note réception" value={t.receptionNote} />
+              )}
             </>
           )}
           {t.status === "EN_TRANSIT" && (
             <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">
-              Les {totalSent} caisses sont réservées au départ ({t.fromDepot?.name}) et ne sont plus vendables. Aucun compteur ne bouge avant la
-              validation de la réception.
+              Les {totalSent} caisses sont réservées au départ (
+              {t.fromDepot?.name}) et ne sont plus vendables. Aucun compteur ne
+              bouge avant la validation de la réception.
             </p>
           )}
         </section>
 
         <section className="card p-4 lg:col-span-2">
-          <h2 className="section-title mb-3">{t.status === "EN_TRANSIT" ? "Contrôle à la réception" : "Articles"}</h2>
+          <h2 className="section-title mb-3">
+            {t.status === "EN_TRANSIT" ? "Contrôle à la réception" : "Articles"}
+          </h2>
           <ul className="divide-y divide-slate-100">
             {t.lines.map((l) => {
               const r = get(l._id, l.sentBoxes);
-              const gap = t.status === "RECU" && l.receivedBoxes !== null ? l.sentBoxes - l.receivedBoxes : 0;
+              const gap =
+                t.status === "RECU" && l.receivedBoxes !== null
+                  ? l.sentBoxes - l.receivedBoxes
+                  : 0;
               return (
                 <li key={l._id} className="space-y-2 py-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-slate-800">{l.name}</div>
+                      <div className="truncate text-sm font-semibold text-slate-800">
+                        {l.name}
+                      </div>
                       <div className="text-xs text-slate-500">
-                        {l.ref} · bain {l.lot} · {formatM2(m2ForBoxes(l.sentBoxes, l.m2PerBox))}
+                        {l.ref} · bain {l.lot} ·{" "}
+                        {formatM2(m2ForBoxes(l.sentBoxes, l.m2PerBox))}
                       </div>
                     </div>
                     <div className="text-right text-sm">
-                      <div className="font-bold text-slate-900">{l.sentBoxes} cs envoyées</div>
+                      <div className="font-bold text-slate-900">
+                        {l.sentBoxes} cs envoyées
+                      </div>
                       {t.status === "RECU" && (
-                        <div className={gap > 0 ? "text-xs font-semibold text-red-600" : "text-xs text-emerald-700"}>
-                          {l.receivedBoxes} reçues{gap > 0 && ` (écart −${gap})`}
+                        <div
+                          className={
+                            gap > 0
+                              ? "text-xs font-semibold text-red-600"
+                              : "text-xs text-emerald-700"
+                          }
+                        >
+                          {l.receivedBoxes} reçues
+                          {gap > 0 && ` (écart −${gap})`}
                         </div>
                       )}
                     </div>
                   </div>
-                  {t.status === "RECU" && l.note && <div className="text-xs italic text-slate-500">{l.note}</div>}
-                  {t.status === "EN_TRANSIT" && (
+                  {t.status === "RECU" && l.note && (
+                    <div className="text-xs italic text-slate-500">
+                      {l.note}
+                    </div>
+                  )}
+                  {canReceive && (
                     <div className="grid grid-cols-3 gap-2">
                       <label>
                         <span className="label">Reçues</span>
@@ -129,7 +177,16 @@ export function TransferDetail({ id }: { id: string }) {
                           onChange={(e) =>
                             setReceived({
                               ...received,
-                              [l._id]: { ...r, boxes: Math.min(l.sentBoxes, Math.max(0, Math.trunc(Number(e.target.value)))) },
+                              [l._id]: {
+                                ...r,
+                                boxes: Math.min(
+                                  l.sentBoxes,
+                                  Math.max(
+                                    0,
+                                    Math.trunc(Number(e.target.value)),
+                                  ),
+                                ),
+                              },
                             })
                           }
                           className="input"
@@ -139,8 +196,17 @@ export function TransferDetail({ id }: { id: string }) {
                         <span className="label">Observation</span>
                         <input
                           value={r.note}
-                          onChange={(e) => setReceived({ ...received, [l._id]: { ...r, note: e.target.value } })}
-                          placeholder={r.boxes < l.sentBoxes ? "Casse transport, manquant…" : ""}
+                          onChange={(e) =>
+                            setReceived({
+                              ...received,
+                              [l._id]: { ...r, note: e.target.value },
+                            })
+                          }
+                          placeholder={
+                            r.boxes < l.sentBoxes
+                              ? "Casse transport, manquant…"
+                              : ""
+                          }
                           className="input"
                         />
                       </label>
@@ -151,21 +217,44 @@ export function TransferDetail({ id }: { id: string }) {
             })}
           </ul>
 
-          {t.status === "EN_TRANSIT" && (
+          {t.status === "EN_TRANSIT" && !canReceive && !canCancel && (
+            <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <strong>Consultation seule</strong> : la réception est validée par{" "}
+              {t.toDepot?.name}, l&apos;annulation par {t.fromDepot?.name}.
+            </p>
+          )}
+          {(canReceive || canCancel) && (
             <div className="mt-4 space-y-3 border-t border-slate-200 pt-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label>
-                  <span className="label">Réceptionné par</span>
-                  <input value={receivedBy} onChange={(e) => setReceivedBy(e.target.value)} placeholder="Nom du magasinier" className="input" />
-                </label>
-                <label>
-                  <span className="label">Note de réception</span>
-                  <input value={receptionNote} onChange={(e) => setReceptionNote(e.target.value)} className="input" />
-                </label>
-              </div>
+              {canReceive && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label>
+                    <span className="label">Réceptionné par</span>
+                    <input
+                      value={receivedBy}
+                      onChange={(e) => setReceivedBy(e.target.value)}
+                      placeholder="Nom du magasinier"
+                      className="input"
+                    />
+                  </label>
+                  <label>
+                    <span className="label">Note de réception</span>
+                    <input
+                      value={receptionNote}
+                      onChange={(e) => setReceptionNote(e.target.value)}
+                      className="input"
+                    />
+                  </label>
+                </div>
+              )}
+              {!canReceive && (
+                <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                  La réception sera validée par {t.toDepot?.name}.
+                </p>
+              )}
               {gaps.length > 0 && (
                 <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                  {gaps.length} ligne(s) avec écart : les caisses manquantes seront inscrites au journal comme « Écart transfert ».
+                  {gaps.length} ligne(s) avec écart : les caisses manquantes
+                  seront inscrites au journal comme « Écart transfert ».
                 </p>
               )}
               {actionError && <ErrorBox message={actionError} />}
@@ -178,13 +267,22 @@ export function TransferDetail({ id }: { id: string }) {
                       : "Annuler ce transfert ? Les réservations seront libérées au dépôt expéditeur."}
                   </p>
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => setConfirming(null)} className="btn-ghost flex-1" disabled={busy}>
+                    <button
+                      type="button"
+                      onClick={() => setConfirming(null)}
+                      className="btn-ghost flex-1"
+                      disabled={busy}
+                    >
                       Retour
                     </button>
                     <button
                       type="button"
                       onClick={() => act(confirming)}
-                      className={confirming === "receive" ? "btn-success flex-1" : "btn-danger flex-1"}
+                      className={
+                        confirming === "receive"
+                          ? "btn-success flex-1"
+                          : "btn-danger flex-1"
+                      }
                       disabled={busy}
                     >
                       {busy ? "Traitement…" : "Confirmer"}
@@ -193,12 +291,24 @@ export function TransferDetail({ id }: { id: string }) {
                 </div>
               ) : (
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setConfirming("cancel")} className="btn-danger flex-1">
-                    Annuler le transfert
-                  </button>
-                  <button type="button" onClick={() => setConfirming("receive")} className="btn-success flex-[2]">
-                    ✓ Valider la réception
-                  </button>
+                  {canCancel && (
+                    <button
+                      type="button"
+                      onClick={() => setConfirming("cancel")}
+                      className="btn-danger flex-1"
+                    >
+                      Annuler le transfert
+                    </button>
+                  )}
+                  {canReceive && (
+                    <button
+                      type="button"
+                      onClick={() => setConfirming("receive")}
+                      className="btn-success flex-[2]"
+                    >
+                      ✓ Valider la réception
+                    </button>
+                  )}
                 </div>
               )}
             </div>

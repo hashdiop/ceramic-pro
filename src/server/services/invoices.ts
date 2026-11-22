@@ -3,7 +3,7 @@ import { connectDB, withTransaction } from "@/server/db";
 import { AppError } from "@/server/errors";
 import { Depot, Invoice, Product, StockLot } from "@/server/models";
 import type { InvoiceInput } from "@/lib/schemas";
-import type { Actor } from "@/server/context";
+import { assertCanWriteDepot, type Actor } from "@/server/context";
 import { computeInvoice, type CalcProduct } from "@/lib/invoice-calc";
 import { applyMovement } from "./stock";
 import { nextNumber } from "./numbering";
@@ -28,8 +28,9 @@ export async function createInvoice(input: InvoiceInput, actor: Actor) {
   await connectDB();
   const depot = await Depot.findById(input.depotId);
   if (!depot) throw new AppError("Dépôt introuvable", 404);
+  assertCanWriteDepot(actor, depot._id, depot.name, "vendre");
 
-  const ids = [...input.lines.map((l) => l.productId), ...(input.breakage ? [input.breakage.productId] : [])];
+  const ids =[...input.lines.map((l) => l.productId), ...(input.breakage ? [input.breakage.productId] : [])];
   const products = await Product.find({ _id: { $in: ids } }).lean();
   const byId = new Map(products.map((p) => [String(p._id), p]));
   const product = (id: string) => {
@@ -132,6 +133,7 @@ export async function createInvoice(input: InvoiceInput, actor: Actor) {
           breakageAmount: calc.breakageAmount,
           netTotal: calc.netTotal,
           createdBy: actor.id,
+          createdByName: actor.name,
         },
       ],
       { session },

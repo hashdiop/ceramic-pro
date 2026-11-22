@@ -8,6 +8,7 @@ import { REALTIME_EVENTS } from "@/lib/realtime-events";
 import { formatM2, m2ForBoxes } from "@/lib/units";
 import type { AvailableLotDTO, ProductDTO, TransferDTO } from "@/lib/types";
 import { useDepots } from "@/components/depot-context";
+import { useAuth } from "@/components/auth-context";
 import { Empty, ErrorBox, PageHeader } from "@/components/ui";
 
 interface Line {
@@ -20,6 +21,9 @@ interface Line {
 export function NewTransferForm() {
   const router = useRouter();
   const { depots, currentDepotId } = useDepots();
+  const { canWrite } = useAuth();
+  // Le transfert est déclaré par le dépôt expéditeur : seuls ses propres dépôts peuvent expédier.
+  const sourceDepots = depots.filter((d) => canWrite(d._id));
   const products = useApi<ProductDTO[]>("/api/products", [REALTIME_EVENTS.catalog]);
 
   const [fromId, setFromId] = useState("");
@@ -32,7 +36,7 @@ export function NewTransferForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const from = fromId || currentDepotId;
+  const from = fromId || (sourceDepots.some((d) => d._id === currentDepotId) ? currentDepotId : (sourceDepots[0]?._id ?? ""));
   const to = toId || depots.find((d) => d._id !== from)?._id || "";
   const lots = useApi<AvailableLotDTO[]>(from ? `/api/stock/lots?depotId=${from}` : null, [REALTIME_EVENTS.stock]);
   const productMap = useMemo(() => new Map((products.data ?? []).map((p) => [p._id, p])), [products.data]);
@@ -108,7 +112,7 @@ export function NewTransferForm() {
             <label>
               <span className="label">Dépôt expéditeur</span>
               <select value={from} onChange={(e) => changeSource(e.target.value)} className="input">
-                {depots.map((d) => (
+                {sourceDepots.map((d) => (
                   <option key={d._id} value={d._id}>
                     {d.code} — {d.name}
                   </option>

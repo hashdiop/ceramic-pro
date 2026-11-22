@@ -102,7 +102,8 @@ const movementSchema = new Schema(
     refNumber: { type: String, default: "" },
     note: { type: String, default: "" },
     /** Utilisateur à l'origine du mouvement (RBAC à venir). */
-    createdBy: { type: String, default: "system" },
+    createdBy: { type: String, default: "system" }, // identifiant de l'utilisateur
+    createdByName: { type: String, default: "" },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );
@@ -148,7 +149,8 @@ const transferSchema = new Schema(
     driver: { type: String, default: "" },
     vehicle: { type: String, default: "" },
     note: { type: String, default: "" },
-    createdBy: { type: String, default: "system" },
+    createdBy: { type: String, default: "system" }, // identifiant de l'utilisateur
+    createdByName: { type: String, default: "" },
     sentAt: { type: Date, default: Date.now },
     receivedAt: Date,
     receivedBy: String,
@@ -207,7 +209,8 @@ const invoiceSchema = new Schema(
     },
     breakageAmount: { type: Number, default: 0 },
     netTotal: Number,
-    createdBy: { type: String, default: "system" },
+    createdBy: { type: String, default: "system" }, // identifiant de l'utilisateur
+    createdByName: { type: String, default: "" },
   },
   { timestamps: true },
 );
@@ -216,3 +219,30 @@ export type InvoiceDoc = InferSchemaType<typeof invoiceSchema> & { _id: Types.Ob
 export const Invoice: Model<InvoiceDoc> = models.Invoice || model("Invoice", invoiceSchema);
 
 export { mongoose };
+
+/* -------------------------------------------------------------------------- */
+/*  Utilisateur (RBAC)                                                        */
+/* -------------------------------------------------------------------------- */
+
+export const ROLES = ["ADMIN", "USER"] as const;
+export type Role = (typeof ROLES)[number];
+
+const userSchema = new Schema(
+  {
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    name: { type: String, required: true, trim: true },
+    /** ADMIN : tous les dépôts + comptes + catalogue. USER : consulte tout, n'agit que sur ses dépôts. */
+    role: { type: String, enum: ROLES, default: "USER" },
+    depots: [{ type: Schema.Types.ObjectId, ref: "Depot" }],
+    passwordHash: { type: String, required: true },
+    /** Mot de passe provisoire (par défaut ou réinitialisé) : changement obligatoire à la connexion. */
+    mustChangePassword: { type: Boolean, default: true },
+    active: { type: Boolean, default: true },
+    /** Incrémentée pour invalider les sessions ouvertes (mot de passe changé, compte désactivé). */
+    tokenVersion: { type: Number, default: 0 },
+    lastLoginAt: Date,
+  },
+  { timestamps: true },
+);
+export type UserDoc = InferSchemaType<typeof userSchema> & { _id: Types.ObjectId };
+export const User: Model<UserDoc> = models.User || model("User", userSchema);

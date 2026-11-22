@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useApi } from "@/lib/client/api";
 import { REALTIME_EVENTS } from "@/lib/realtime-events";
 import type { DepotDTO } from "@/lib/types";
+import { useAuth } from "./auth-context";
 
 interface DepotCtx {
   depots: DepotDTO[];
@@ -20,6 +21,7 @@ const STORAGE_KEY = "cp.currentDepot";
 
 export function DepotProvider({ children }: { children: React.ReactNode }) {
   const { data, loading, error } = useApi<DepotDTO[]>("/api/depots", [REALTIME_EVENTS.catalog]);
+  const { user } = useAuth();
   const [stored, setStored] = useState("");
 
   useEffect(() => {
@@ -33,7 +35,9 @@ export function DepotProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<DepotCtx>(() => {
     const depots = data ?? [];
-    const currentDepotId = depots.some((d) => d._id === stored) ? stored : (depots[0]?._id ?? "");
+    // Par défaut : le premier dépôt attribué à l'utilisateur (sinon le premier dépôt).
+    const own = depots.find((d) => user?.depotIds.includes(d._id));
+    const currentDepotId = depots.some((d) => d._id === stored) ? stored : (own?._id ?? depots[0]?._id ?? "");
     return {
       depots,
       currentDepotId,
@@ -49,7 +53,7 @@ export function DepotProvider({ children }: { children: React.ReactNode }) {
       loading,
       error,
     };
-  }, [data, stored, loading, error]);
+  }, [data, stored, loading, error, user]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -20,6 +20,15 @@ export const env = {
   get mongodbDb() {
     return process.env.MONGODB_DB || "ceramique-pro";
   },
+  /** Clé de signature des sessions. Obligatoire en production ; valeur de secours en développement. */
+  get authSecret() {
+    const v = process.env.AUTH_SECRET;
+    if (v && v.length >= 32) return v;
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("AUTH_SECRET manquant ou trop court (32 caractères minimum). Ajoutez-le aux variables d'environnement.");
+    }
+    return "dev-only-secret-ceramique-pro-ne-pas-utiliser-en-prod";
+  },
   cloudinary: {
     get cloudName() {
       return process.env.CLOUDINARY_CLOUD_NAME || "";
