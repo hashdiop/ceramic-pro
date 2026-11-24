@@ -208,6 +208,7 @@ function UserMenu({ active }: { active: boolean }) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const online = useRealtimeStatus();
+  const { user, logout } = useAuth();
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
   return (
@@ -248,6 +249,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
+      {user?.demo && (
+        <div className="no-print flex items-center justify-center gap-2 bg-amber-400 px-4 py-1 text-xs font-semibold text-amber-950">
+          Mode démo · connecté en {user.name}
+          <button type="button" onClick={logout} className="rounded-full bg-amber-950/10 px-2 py-0.5 underline-offset-2 hover:underline">
+            Changer de compte
+          </button>
+        </div>
+      )}
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 pb-28 pt-4 lg:pb-10 lg:pt-6">{children}</main>
 
       {/* Navigation mobile en bas d'écran (zone du pouce) */}

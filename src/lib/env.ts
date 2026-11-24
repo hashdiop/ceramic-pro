@@ -20,6 +20,13 @@ export const env = {
   get mongodbDb() {
     return process.env.MONGODB_DB || "ceramique-pro";
   },
+  /**
+   * Mode démo (maquette) : boutons de connexion rapide aux comptes de démonstration, sans mot de passe.
+   * À ne JAMAIS activer avec de vraies données : quiconque a le lien devient administrateur.
+   */
+  get demoLogin() {
+    return process.env.DEMO_LOGIN === "true";
+  },
   /** Clé de signature des sessions. Obligatoire en production ; valeur de secours en développement. */
   get authSecret() {
     const v = process.env.AUTH_SECRET;

@@ -94,4 +94,5 @@ src/server/               Serveur uniquement : DB, modèles Mongoose, services m
 - **Mots de passe** : hachés avec scrypt (module `crypto` de Node). Tout mot de passe provisoire (création, réinitialisation) doit être changé à la connexion suivante.
 - **Comptes par défaut** : `USERS_DEFAULT_PASSWORD="…" npm run users:init` crée `admin@cpro.com` et `depot{N}@cpro.com` pour chaque dépôt actif `DEP-N` (idempotent, ne modifie jamais un compte existant). Le mot de passe n'est pas écrit dans le code.
 - Les opérations enregistrent leur auteur (`createdBy`, `createdByName`), visible dans le journal et la supervision.
+- **Mode démo** (maquette) : avec `DEMO_LOGIN=true`, la page de connexion propose des boutons de connexion rapide, sans mot de passe, vers `admin@cpro.com`, `depot1@cpro.com` et `depot2@cpro.com` (comptes actifs uniquement), avec un bandeau « Mode démo » dans l'application. Les droits restent appliqués. ⚠️ Quiconque a le lien devient administrateur : retirer la variable avant d'utiliser de vraies données.
 - Socket.io diffuse seulement des signaux de rafraîchissement (aucune donnée) : il n'est pas authentifié.

@@ -166,3 +166,27 @@ export async function getNetwork() {
     managers: users.filter((u) => (u.depots ?? []).some((id) => String(id) === String(d._id))).map((u) => ({ name: u.name, phone: u.phone ?? "" })),
   }));
 }
+
+/* --------------------------------- Mode démo --------------------------------- */
+
+/** Seuls comptes accessibles par connexion rapide (et uniquement si DEMO_LOGIN=true). */
+export const DEMO_EMAILS = ["admin@cpro.com", "depot1@cpro.com", "depot2@cpro.com"] as const;
+
+export async function listDemoAccounts() {
+  await connectDB();
+  const users = await User.find({ email: { $in: DEMO_EMAILS }, active: true }).populate<{ depots: { name: string }[] }>("depots", "name", Depot).lean();
+  return DEMO_EMAILS.map((email) => users.find((u) => u.email === email))
+    .filter((u) => u !== undefined)
+    .map((u) => ({ email: u.email, name: u.name, role: u.role as Role, depots: u.depots.map((d) => d.name) }));
+}
+
+/** Ouvre une session sans mot de passe pour un compte de démonstration. */
+export async function demoLogin(email: string) {
+  await connectDB();
+  if (!(DEMO_EMAILS as readonly string[]).includes(email)) throw new AppError("Compte non disponible en mode démo.", 403);
+  const u = await User.findOne({ email });
+  if (!u || !u.active) throw new AppError("Compte de démonstration introuvable ou désactivé.", 404);
+  u.lastLoginAt = new Date();
+  await u.save();
+  return { user: publicUser(u.toObject()), token: sessionFor(u) };
+}

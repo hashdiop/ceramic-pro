@@ -172,6 +172,8 @@ export interface SessionUserDTO {
   role: Role;
   depotIds: string[];
   mustChangePassword: boolean;
+  /** Mode démo actif (connexion rapide) : affiché en bandeau. */
+  demo?: boolean;
 }
 
 /** Compte vu par l'administrateur (GET /api/users). */
