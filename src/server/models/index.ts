@@ -250,3 +250,27 @@ const userSchema = new Schema(
 );
 export type UserDoc = InferSchemaType<typeof userSchema> & { _id: Types.ObjectId };
 export const User: Model<UserDoc> = models.User || model("User", userSchema);
+
+/* -------------------------------------------------------------------------- */
+/*  État technique et journal des sauvegardes (JAMAIS inclus dans une sauvegarde) */
+/* -------------------------------------------------------------------------- */
+
+/** Verrou des opérations de sauvegarde / restauration et drapeau de maintenance. */
+const appStateSchema = new Schema({
+  _id: { type: String, required: true }, // "backup-lock" | "maintenance"
+  at: { type: Date, required: true },
+  by: { type: String, default: "" },
+  op: { type: String, default: "" },
+});
+export const AppState: Model<{ _id: string; at: Date; by: string; op: string }> = models.AppState || model("AppState", appStateSchema);
+
+const backupLogSchema = new Schema(
+  {
+    action: { type: String, enum: ["SAUVEGARDE", "RESTAURATION", "SUPPRESSION"], required: true },
+    backupId: { type: String, default: "" },
+    by: { type: String, default: "" },
+    detail: { type: String, default: "" },
+  },
+  { timestamps: { createdAt: true, updatedAt: false } },
+);
+export const BackupLog = models.BackupLog || model("BackupLog", backupLogSchema);

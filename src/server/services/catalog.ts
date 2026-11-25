@@ -5,7 +5,7 @@ import { Depot, Product, StockLot, Transfer } from "@/server/models";
 import type { DepotInput, DepotUpdate, ProductInput, ProductUpdate } from "@/lib/schemas";
 import { REALTIME_EVENTS } from "@/lib/realtime-events";
 import { broadcast } from "@/server/realtime";
-import { assertOwnedPublicId, deleteImage, deleteImageQuietly, isCloudinaryEnabled, isOwnedPublicId, moveImage } from "@/server/cloudinary";
+import { assertOwnedPublicId, deleteImage, isCloudinaryEnabled, isOwnedPublicId, moveImage, trashImageQuietly } from "@/server/cloudinary";
 import { nextProductRef } from "./numbering";
 
 const changed = () => {
@@ -111,7 +111,7 @@ export async function updateProduct(id: string, input: ProductUpdate) {
   }
 
   // Image remplacée ou retirée : l'ancienne n'est plus référencée, on la supprime.
-  if (imageChanged && previousImage && previousImage !== current.imagePublicId) await deleteImageQuietly(previousImage);
+  if (imageChanged && previousImage && previousImage !== current.imagePublicId) await trashImageQuietly(previousImage); // corbeille 60 jours (restaurations)
 
   changed();
   return current;

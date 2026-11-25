@@ -10,7 +10,11 @@
     "dev:next": "next dev",
     "seed": "tsx scripts/seed.ts",
     "typecheck": "tsc --noEmit",
-    "users:init": "tsx scripts/users-init.ts"
+    "users:init": "tsx scripts/users-init.ts",
+    "backup": "tsx scripts/backup.ts create",
+    "backup:list": "tsx scripts/backup.ts list",
+    "backup:download": "tsx scripts/backup.ts download",
+    "restore": "tsx scripts/backup.ts restore"
   },
   "dependencies": {
     "cloudinary": "^2.11.0",

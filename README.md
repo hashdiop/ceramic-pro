@@ -96,3 +96,30 @@ src/server/               Serveur uniquement : DB, modèles Mongoose, services m
 - Les opérations enregistrent leur auteur (`createdBy`, `createdByName`), visible dans le journal et la supervision.
 - **Mode démo** (maquette) : avec `DEMO_LOGIN=true`, la page de connexion propose des boutons de connexion rapide, sans mot de passe, vers `admin@cpro.com`, `depot1@cpro.com` et `depot2@cpro.com` (comptes actifs uniquement), avec un bandeau « Mode démo » dans l'application. Les droits restent appliqués. ⚠️ Quiconque a le lien devient administrateur : retirer la variable avant d'utiliser de vraies données.
 - Socket.io diffuse seulement des signaux de rafraîchissement (aucune donnée) : il n'est pas authentifié.
+
+## Sauvegarde et restauration
+
+Base MongoDB Atlas gratuite (M0) = **aucune sauvegarde automatique côté Atlas** : l'application gère les siennes.
+
+- **Contenu** : toutes les collections (produits, dépôts, lots, mouvements, transferts, factures, compteurs, comptes), lues en un seul instant (lecture *snapshot*).
+- **Fichier `.cpb`** : en-tête lisible (date, type, auteur, nombres d'éléments, empreintes) + données compressées et **chiffrées** (AES-256-GCM, clé `BACKUP_KEY`). Un fichier modifié ou ouvert avec une autre clé est refusé.
+- **Stockage** : Cloudinary, fichiers privés dans `<CLOUDINARY_FOLDER>/backups`.
+- **Pas de doublon** : une sauvegarde identique à la précédente (empreinte du contenu, hors dates de connexion) est refusée ; un verrou empêche deux opérations simultanées.
+- **Restauration** : fichier vérifié avant toute écriture → sauvegarde de sécurité automatique de l'état actuel → mode maintenance (écritures refusées, 503) → index recréés → remplacement de toutes les collections en **une transaction** → contrôle des nombres → photos remises en place.
+- **Corbeille des photos** : une photo remplacée ou retirée part dans `<CLOUDINARY_FOLDER>/trash` (vidée après 60 jours, à chaque sauvegarde) pour qu'une restauration la retrouve.
+
+**Espace admin → Sauvegardes** : sauvegarder (avec note), liste avec l'écart par rapport à la précédente, télécharger, restaurer (aperçu des écarts + saisie de `RESTAURER`), importer un fichier, historique.
+
+**Ligne de commande** (fonctionne même si la base a été supprimée — plus aucun compte pour se connecter) :
+
+```bash
+npm run backup:list                          # sauvegardes disponibles
+npm run backup -- --note="avant inventaire"  # nouvelle sauvegarde
+npm run restore                              # choix interactif dans la liste
+npm run restore -- --latest                  # la plus récente
+npm run restore -- --file=copie.cpb          # un fichier téléchargé
+npm run restore -- --latest --db=ceramique-pro-repetition   # répétition dans une autre base
+npm run backup:download -- --latest --out=copie.cpb
+```
+
+> ⚠️ `BACKUP_KEY` doit être **la même** en local et sur Vercel, et conservée en lieu sûr : sans elle, les sauvegardes sont illisibles. Les scripts utilisent `MONGODB_URI` / `MONGODB_DB` de `.env.local` : vérifiez la base cible affichée avant de confirmer.

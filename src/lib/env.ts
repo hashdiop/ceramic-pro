@@ -27,6 +27,15 @@ export const env = {
   get demoLogin() {
     return process.env.DEMO_LOGIN === "true";
   },
+  /** Clé de chiffrement des sauvegardes (32 caractères minimum). Sans elle, impossible de sauvegarder ou restaurer. */
+  get backupKey() {
+    const v = process.env.BACKUP_KEY;
+    if (!v || v.length < 32) throw new Error("BACKUP_KEY manquant ou trop court (32 caractères minimum).");
+    return v;
+  },
+  get backupConfigured() {
+    return Boolean(process.env.BACKUP_KEY && process.env.BACKUP_KEY.length >= 32);
+  },
   /** Clé de signature des sessions. Obligatoire en production ; valeur de secours en développement. */
   get authSecret() {
     const v = process.env.AUTH_SECRET;

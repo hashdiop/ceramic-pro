@@ -11,20 +11,23 @@ import { useDepots } from "@/components/depot-context";
 import { Sheet } from "@/components/sheet";
 import { Empty, ErrorBox, Kpi, PageHeader, Spinner } from "@/components/ui";
 import { TYPE_LABEL } from "../stock/mouvements/movements-view";
+import { BackupsPanel } from "./backups-panel";
 
 const TABS = [
   { key: "comptes", label: "Comptes" },
   { key: "supervision", label: "Supervision" },
+  { key: "sauvegardes", label: "Sauvegardes" },
 ] as const;
 
 export function AdminView() {
   const router = useRouter();
   const params = useSearchParams();
-  const tab = params.get("onglet") === "supervision" ? "supervision" : "comptes";
+  const o = params.get("onglet");
+  const tab = o === "supervision" || o === "sauvegardes" ? o : "comptes";
   return (
     <>
       <PageHeader title="Espace admin" subtitle="Comptes utilisateurs et supervision des dépôts" />
-      <div className="mb-4 grid grid-cols-2 gap-1.5 rounded-xl bg-slate-200/70 p-1 sm:inline-grid sm:w-80">
+      <div className="mb-4 grid grid-cols-3 gap-1.5 rounded-xl bg-slate-200/70 p-1 sm:inline-grid sm:w-[30rem]">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -36,7 +39,7 @@ export function AdminView() {
           </button>
         ))}
       </div>
-      {tab === "comptes" ? <Accounts /> : <Supervision />}
+      {tab === "comptes" ? <Accounts /> : tab === "supervision" ? <Supervision /> : <BackupsPanel />}
     </>
   );
 }

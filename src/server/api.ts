@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connection } from "next/server";
 import { errorResponse } from "@/server/errors";
 import { getActor, type Actor } from "@/server/context";
+import { assertNotInMaintenance } from "@/server/backup/service";
 import { SESSION_COOKIE, sessionCookieOptions } from "@/server/auth/token";
 
 /**
@@ -17,6 +18,8 @@ export function route<C = unknown>(
     await connection();
     try {
       const actor = await getActor(opts);
+      // Pendant une restauration, toute écriture est refusée (503) : la base est en cours de remplacement.
+      if (req.method !== "GET") await assertNotInMaintenance();
       const data = await fn(req, ctx, actor);
       return data instanceof Response ? data : NextResponse.json(data ?? { ok: true });
     } catch (err) {
